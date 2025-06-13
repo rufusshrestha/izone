@@ -113,14 +113,15 @@ get_zone_type_text() {
     esac
 }
 
-# Function to convert BatteryLevel_e to human-readable text (and color if low)
+# Function to return the raw BatteryLevel_e value (no translation)
 get_battery_level_text() {
     local batt_code="$1"
-    case "$batt_code" in
-        0) echo "${RED}Low${NC}" ;; # Assuming 0 is Low
-        1) echo "OK" ;;
-        *) echo "Level($batt_code)" ;;
-    esac
+    # Optionally, you could still add color if the raw value is '0'
+    if [[ "$batt_code" == "0" ]]; then
+        echo "${RED}${batt_code}${NC}" # Still highlight '0' if it implies low/critical
+    else
+        echo "$batt_code"
+    fi
 }
 
 # ---
@@ -254,12 +255,12 @@ control_zone() {
             echo "Max Airflow:   ${max_air}%"
             echo "Min Airflow:   ${min_air}%"
             echo "--- Sensor & Faults ---"
-            echo "Sensor Type:   ${sens_type}"
+            echo "Sensor Type:   ${sens_type}" # No lookup table provided for SensType_e
             echo "Sensor Fault:  ${sensor_fault_text}"
             echo "Damper Fault:  ${dmp_flt_text}"
             echo "iSense Active: ${isense}"
             echo "Calibration:   ${calibration}"
-            echo "RF Signal:     ${rf_signal}" # RfSignalLevel_e lookup could be added
+            echo "RF Signal:     ${rf_signal}" # No lookup table provided for RfSignalLevel_e
             echo "Battery:       $(get_battery_level_text "$batt_volt")"
             echo "--- Advanced ---"
             echo "Constant:      ${const}"
@@ -438,7 +439,7 @@ get_all_zones_summary() {
         if [[ "$sensor_fault" == "1" ]]; then
             additional_status+=" ${RED}SnsFlt${NC}"
         fi
-        if [[ "$batt_volt" == "0" ]]; then
+        if [[ "$batt_volt" == "0" ]]; then # Only highlight if raw value is '0'
             additional_status+=" ${RED}LowBatt${NC}"
         fi
 
