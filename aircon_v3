@@ -418,19 +418,14 @@ get_all_zones_summary() {
         local batt_volt=$(echo "$response" | jq -r '.ZonesV2.BattVolt') # Assuming 0 is Low, 1 is OK
 
         local zone_mode_colored_text=""
-        if [[ "$mode" == "2" ]]; then
-            zone_mode_colored_text="${RED}OFF${NC}"
-        elif [[ "$mode" == "3" ]]; then
-            zone_mode_colored_text="${GREEN}ON${NC}"
-        elif [[ "$mode" == "1" ]]; then
-            zone_mode_colored_text="${ORANGE}OPEN${NC}"
-        elif [[ "$mode" == "4" ]]; then
-            zone_mode_colored_text="${ORANGE}OVRIDE${NC}" # Abbreviated for summary
-        elif [[ "$mode" == "5" ]]; then
-            zone_mode_colored_text="${ORANGE}CONST${NC}" # Abbreviated for summary
-        else
-            zone_mode_colored_text="UNKNOWN"
-        fi
+        case "$mode" in
+            1) zone_mode_colored_text="${ORANGE}OPEN${NC}" ;; # Added this line
+            2) zone_mode_colored_text="${RED}OFF${NC}" ;;
+            3) zone_mode_colored_text="${GREEN}ON${NC}" ;;
+            4) zone_mode_colored_text="${ORANGE}OVRIDE${NC}" ;; # Abbreviated for summary
+            5) zone_mode_colored_text="${ORANGE}CONST${NC}" ;; # Abbreviated for summary
+            *) zone_mode_colored_text="UNKNOWN" ;;
+        esac
 
         local additional_status=""
         if [[ "$dmp_flt" == "1" ]]; then
