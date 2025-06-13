@@ -114,11 +114,12 @@ get_zone_type_text() {
 }
 
 # Function to return the raw BatteryLevel_e value (no translation)
+# This is for the detailed 'status' view, showing the raw number.
 get_battery_level_text() {
     local batt_code="$1"
-    # Optionally, you could still add color if the raw value is '0'
+    # Still highlight '0' if it might imply low/critical, even if we don't call it "LowBatt" universally.
     if [[ "$batt_code" == "0" ]]; then
-        echo "${RED}${batt_code}${NC}" # Still highlight '0' if it implies low/critical
+        echo "${RED}${batt_code}${NC}"
     else
         echo "$batt_code"
     fi
@@ -415,11 +416,12 @@ get_all_zones_summary() {
         local damper_pos=$(echo "$response" | jq -r '.ZonesV2.DmpPos')
         local dmp_flt=$(echo "$response" | jq -r '.ZonesV2.DmpFlt')
         local sensor_fault=$(echo "$response" | jq -r '.ZonesV2.SensorFault')
-        local batt_volt=$(echo "$response" | jq -r '.ZonesV2.BattVolt') # Assuming 0 is Low, 1 is OK
+        local batt_volt=$(echo "$response" | jq -r '.ZonesV2.BattVolt')
+        local sens_type=$(echo "$response" | jq -r '.ZonesV2.SensType') # Get SensType for conditional battery check
 
         local zone_mode_colored_text=""
         case "$mode" in
-            1) zone_mode_colored_text="${ORANGE}OPEN${NC}" ;; # Added this line
+            1) zone_mode_colored_text="${ORANGE}OPEN${NC}" ;;
             2) zone_mode_colored_text="${RED}OFF${NC}" ;;
             3) zone_mode_colored_text="${GREEN}ON${NC}" ;;
             4) zone_mode_colored_text="${ORANGE}OVRIDE${NC}" ;; # Abbreviated for summary
@@ -434,7 +436,11 @@ get_all_zones_summary() {
         if [[ "$sensor_fault" == "1" ]]; then
             additional_status+=" ${RED}SnsFlt${NC}"
         fi
-        if [[ "$batt_volt" == "0" ]]; then # Only highlight if raw value is '0'
+
+        # Conditional LowBatt print: Only if batt_volt is 0 AND it's a sensor type likely to have a battery.
+        # *** IMPORTANT: Replace '9' with the actual SensType code(s) for your wireless battery sensors. ***
+        # If you have multiple wireless sensor types, use: ( "$sens_type" == "9" || "$sens_type" == "X" )
+        if [[ "$batt_volt" == "0" && "$sens_type" == "9" ]]; then # Assuming '9' is a wireless sensor type
             additional_status+=" ${RED}LowBatt${NC}"
         fi
 
