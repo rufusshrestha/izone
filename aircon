@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# Configuration
+# ---
+# You can easily change these values if your iZone IP or API endpoints change.
+IZONE_IP="192.168.1.130"
+QUERY_URL="http://${IZONE_IP}/iZoneRequestV2"
+COMMAND_URL="http://${IZONE_IP}/iZoneCommandV2"
+
+# Define zones and their corresponding API indices.
+# ---
+# To add a new zone:
+# 1. Add its name (lowercase) as a key.
+# 2. Assign its numerical index from the iZone system as the value.
+declare -A ZONES=(
+    ["kitchen"]=0
+    ["theatre"]=1
+    ["living"]=2
+    ["master"]=3
+    ["work"]=4
+    ["guest"]=5
+    ["rayden"]=6
+    ["rumpus"]=7
+)
+
+# ---
+# Core Functions
+# ---
+
+# Function to send a command to the iZone system
+send_command() {
+    local data="$1"
+    curl -s -XPOST "$COMMAND_URL" -H "Content-Type: application/json" --data "$data"
+}
+
+# Function to query the iZone system
+query_izone() {
+    local data="$1"
+    curl -s "$QUERY_URL" -H "Content-Type: application/json" --data "$data" | jq
+}
+
+# Function to get system-wide status
+get_system_status() {
+    query_izone '{ "iZoneV2Request": { "Type": 1, "No": 0, "No1": 0 } }'
+}
+
+# Function to control or query a specific zone
+control_zone() {
+    local zone_name="$1"
+    local action="$2"
+    local zone_index="${ZONES[$zone_name]}"
+
+    if [[ -z "$zone_index" ]]; then
+        echo "Error: Unknown zone '$zone_name'."
+        echo "Available zones: ${!ZONES[*]}"
+        exit 1
+    fi
+
+    case "$action" in
+        status|stat)
+            query_izone "{ \"iZoneV2Request\": { \"Type\": 2, \"No\": $zone_index, \"No1\": 0 } }"
+        ;;
+        on)
+            send_command "{\"ZoneMode\":{\"Index\":$zone_index,\"Mode\":3}}"
+            echo "Turned on $zone_name."
+        ;;
+        off)
+            send_command "{\"ZoneMode\":{\"Index\":$zone_index,\"Mode\":2}}"
+            echo "Turned off $zone_name."
+        ;;
+        *)
+            echo "Invalid action for zone '$zone_name'. Use 'status', 'on', or 'off'."
+            exit 1
+        ;;
+    esac
+}
+
+# ---
+# Main Script Logic
+# ---
+
+# Check for correct number of arguments
+if [[ $# -eq 0 ]]; then
+    echo "Usage: $0 <command> [zone_name] [action]"
+    echo ""
+    echo "Commands:"
+    echo "  on       - Turn on the entire AC system."
+    echo "  off      - Turn off the entire AC system."
+    echo "  status   - Get the overall system status."
+    echo "  <zone_name> <action> - Control a specific zone."
+    echo ""
+    echo "Examples:"
+    echo "  $0 on"
+    echo "  $0 status"
+    echo "  $0 kitchen on"
+    echo "  $0 living status"
+    exit 1
+fi
+
+case "$1" in
+    on|ON)
+        send_command '{"SysOn":1}'
+        echo "Turned on the AC system."
+    ;;
+    off|OFF)
+        send_command '{"SysOn":0}'
+        echo "Turned off the AC system."
+    ;;
+    info|stat|status|STATUS)
+        get_system_status
+    ;;
+    *)
+        # If the first argument is not a system command, treat it as a zone name
+        zone_arg="${1,,}" # Convert to lowercase for case-insensitive matching
+        if [[ -n "${ZONES[$zone_arg]}" && -n "$2" ]]; then
+            control_zone "$zone_arg" "$2"
+        else
+            echo "Invalid command or missing zone action. Type '$0' for usage."
+            exit 1
+        fi
+    ;;
+esac
