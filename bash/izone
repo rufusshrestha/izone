@@ -131,7 +131,7 @@ get_battery_level_text() {
 
 # Get system-wide status and format selected details
 get_system_status() {
-    echo "--- System Status ---"
+    echo "--- AIRCON STATUS ---"
     local response=$(query_izone_raw '{ "iZoneV2Request": { "Type": 1, "No": 0, "No1": 0 } }')
     if [[ -z "$response" ]]; then return 1; fi # Exit if query failed
 
@@ -154,7 +154,7 @@ get_system_status() {
         error_text="${RED}$ac_error${NC}" # Error in Red
     fi
 
-    echo "System Status: ${status_text}"
+    echo "Aircon Status: ${status_text}"
     echo "Mode:          $(get_colored_system_mode "$sys_mode")"
     echo "Current Temp:  ${CYAN}$(format_temp "$sys_temp")°C${NC}"
     echo "Setpoint:      $(format_temp "$sys_setpoint")°C"
@@ -247,31 +247,31 @@ control_zone() {
             local sensor_fault_text="${sensor_fault}"
             if [[ "$sensor_fault" == "1" ]]; then sensor_fault_text="${RED}FAULT${NC}"; fi
 
-            echo "Zone Name:     ${name}"
-            echo "Status:        ${zone_mode_text}"
-            echo "Zone Type:     $(get_zone_type_text "$zone_type")"
-            echo "Current Temp:  ${CYAN}$(format_temp "$temp")°C${NC}"
-            echo "Setpoint:      $(format_temp "$setpoint")°C"
-            echo "Damper Pos:    ${damper_pos}%"
-            echo "Max Airflow:   ${max_air}%"
-            echo "Min Airflow:   ${min_air}%"
+            echo "Zone Name:       ${name}"
+            echo "Status:          ${zone_mode_text}"
+            echo "Zone Type:       $(get_zone_type_text "$zone_type")"
+            echo "Current Temp:    ${CYAN}$(format_temp "$temp")°C${NC}"
+            echo "Setpoint:        $(format_temp "$setpoint")°C"
+            echo "Damper Pos:      ${damper_pos}%"
+            echo "Max Airflow:     ${max_air}%"
+            echo "Min Airflow:     ${min_air}%"
             echo "--- Sensor & Faults ---"
-            echo "Sensor Type:   ${sens_type}" # No lookup table provided for SensType_e
-            echo "Sensor Fault:  ${sensor_fault_text}"
-            echo "Damper Fault:  ${dmp_flt_text}"
-            echo "iSense Active: ${isense}"
-            echo "Calibration:   ${calibration}"
-            echo "RF Signal:     ${rf_signal}" # No lookup table provided for RfSignalLevel_e
-            echo "Battery:       $(get_battery_level_text "$batt_volt")"
+            echo "Sensor Type:     ${sens_type}" # No lookup table provided for SensType_e
+            echo "Sensor Fault:    ${sensor_fault_text}"
+            echo "Damper Fault:    ${dmp_flt_text}"
+            echo "iSense Active:   ${isense}"
+            echo "Calibration:     ${calibration}"
+            echo "RF Signal:       ${rf_signal}" # No lookup table provided for RfSignalLevel_e
+            echo "Battery:         $(get_battery_level_text "$batt_volt")"
             echo "--- Advanced ---"
-            echo "Constant:      ${const}"
+            echo "Constant:        ${const}"
             echo "Constant Active: ${const_a}"
-            echo "Master Zone:   ${master_zone}"
-            echo "Area:          ${area}m²"
-            echo "Bypass:        ${bypass}"
-            echo "Balance Max:   ${balance_max}"
-            echo "Balance Min:   ${balance_min}"
-            echo "Damper Skip:   ${damper_skip}"
+            echo "Master Zone:     ${master_zone}"
+            echo "Area:            ${area}m²"
+            echo "Bypass:          ${bypass}"
+            echo "Balance Max:     ${balance_max}"
+            echo "Balance Min:     ${balance_min}"
+            echo "Damper Skip:     ${damper_skip}"
             echo "-------------------"
             if $VERBOSE; then
                 echo "$response" | jq .
@@ -398,7 +398,7 @@ control_zone() {
 
 # Get summary of all zones
 get_all_zones_summary() {
-    echo "--- All Zones Summary ---"
+    echo "ZONE SUMMARY"
     local all_zones_responses=""
     for zone_name in "${!ZONES[@]}"; do
         local zone_index="${ZONES[$zone_name]}"
@@ -485,7 +485,7 @@ if [[ $# -eq 0 ]]; then
     echo "${LIGHT_GRAY}System-wide Commands:${NC}"
     echo "  ${GREEN}on${NC}                 - Turn on the entire AC system."
     echo "  ${RED}off${NC}                - Turn off the entire AC system."
-    echo "  ${CYAN}status${NC}             - Get the overall system status (detailed)."
+    echo "  ${CYAN}status${NC}             - Get the overall Aircon status (detailed)."
     echo "  ${CYAN}system_temp${NC}        - Get only the current system temperature."
     echo "  ${CYAN}zones_summary${NC}      - Get a summary of all zones."
     echo ""

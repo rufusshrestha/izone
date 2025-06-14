@@ -1,6 +1,8 @@
 // izone/src/helpers.rs
 
-use colored::{Color, Colorize};
+use colored::Colorize; // Removed `Color` as it was unused
+use serde::{Deserializer, Deserialize}; // <--- ADDED `Deserialize` here
+use serde::de::Error; // Import Error trait from serde::de
 
 /// Formats temperature from iZone raw (e.g., 2100 -> 21.0)
 pub fn format_temp(temp_raw: u32) -> String {
@@ -51,4 +53,31 @@ pub fn get_battery_level_text(batt_code: u8) -> String {
     } else {
         batt_code.to_string().normal().to_string()
     }
+}
+
+/// Custom deserializer for booleans that are represented as 0 or 1 integers.
+pub fn deserialize_int_as_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let i = i8::deserialize(deserializer)?; // This line now works
+    match i {
+        0 => Ok(false),
+        1 => Ok(true),
+        _ => Err(D::Error::custom(format!("invalid boolean integer: {}", i))),
+    }
+}
+
+pub fn get_visible_length(s: &str) -> usize {
+    let mut len = 0;
+    let mut in_escape = false;
+    for c in s.chars() {
+        match c {
+            '\x1B' => in_escape = true, // Start of an ANSI escape sequence
+            'm' if in_escape => in_escape = false, // End of a common ANSI color sequence
+            _ if in_escape => { /* Do nothing, part of escape sequence */ },
+            _ => len += c.len_utf8(), // Count visible character length
+        }
+    }
+    len
 }

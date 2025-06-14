@@ -1,11 +1,12 @@
 // izone/src/models.rs
 
 use serde::{Deserialize, Serialize};
+use crate::helpers::deserialize_int_as_bool; // <--- This import is correct
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct SystemV2 {
-    #[serde(default)] // Default to false if not present
+    #[serde(deserialize_with = "deserialize_int_as_bool")] // <--- This line is important
     pub sys_on: bool,
     pub sys_mode: u8,
     pub temp: u32,
@@ -35,7 +36,7 @@ pub struct ZonesV2 {
     pub sens_type: u8,
     pub max_air: u8,
     pub min_air: u8,
-    #[serde(default)] // Default to 0 if not present
+    #[serde(default)]
     #[serde(rename = "Const")]
     pub constant: u8,
     #[serde(rename = "ConstA")]
