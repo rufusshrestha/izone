@@ -111,7 +111,7 @@ pub fn get_system_temp(client: &Client) {
             }
         };
 
-    let temp_line = format!("Current Temperature: {}°C", format_temp(system_v2_response.system_v2.temp).cyan());
+    let temp_line = format!("Current System Temperature: {}°C", format_temp(system_v2_response.system_v2.temp).cyan());
     println!("║ {:<padding_width$} ║", temp_line, padding_width = PADDING_WIDTH - get_visible_length(&temp_line) + temp_line.len());
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 

@@ -60,7 +60,7 @@ struct ZoneArgs {
 enum ZoneAction {
     /// Get detailed status for the zone.
     Status,
-    /// Get only the current temperature for the zone.
+    /// Get only the current system temperature for the zone.
     Temp,
     /// Set zone to Auto mode (typically 'ON').
     On,

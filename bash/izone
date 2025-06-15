@@ -491,7 +491,7 @@ if [[ $# -eq 0 ]]; then
     echo ""
     echo "${LIGHT_GRAY}Zone-specific Commands:${NC}"
     echo "  ${CYAN}<zone_name> status${NC}      - Get detailed status for a specific zone."
-    echo "  ${CYAN}<zone_name> temp${NC}        - Get only the current temperature for a specific zone."
+    echo "  ${CYAN}<zone_name> temp${NC}        - Get only the current system temperature for a specific zone."
     echo ""
     echo "${LIGHT_GRAY}Zone Control Actions (for <zone_name>):${NC}"
     echo "  ${GREEN}on${NC} / ${GREEN}auto${NC}       - Set zone to Auto mode (typically 'ON')."
