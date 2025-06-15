@@ -43,7 +43,7 @@ pub fn get_system_status(client: &Client) {
     let system = system_v2_response.system_v2;
 
     // Section 1: General Status
-    const LABEL_WIDTH: usize = 15; // "System On:" is 10 chars, "Set Temp:" is 9. "Temperature:" is 12. Max needed is "System On:".
+    const LABEL_WIDTH: usize = 15; // "Aircon Power:" is 10 chars, "Set Temp:" is 9. "Temperature:" is 12. Max needed is "Aircon Power:".
 
     let status_text = if system.sys_on {
         "ON".green()
@@ -59,7 +59,7 @@ pub fn get_system_status(client: &Client) {
     };
 
 
-    let sys_on_line = format!("{:width$} {}", "System On:", status_text, width = LABEL_WIDTH);
+    let sys_on_line = format!("{:width$} {}", "Aircon Power:", status_text, width = LABEL_WIDTH);
     let sys_mode_line = format!("{:width$} {}", "Mode:", get_colored_system_mode(system.sys_mode), width = LABEL_WIDTH);
     let sys_temp_line = format!("{:width$} {}°C", "Temperature:", format_temp(system.temp).cyan(), width = LABEL_WIDTH);
     let sys_setpoint_line = format!("{:width$} {}°C", "Set Temp:", format_temp(system.setpoint), width = LABEL_WIDTH);
