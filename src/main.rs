@@ -19,8 +19,8 @@ use crate::commands::zones;
 
 /// Command-line arguments using Clap
 #[derive(Parser, Debug)]
-#[command(name = "izone", author = "Your Name <your_email@example.com>", version = "2.0")]
-#[command(about = "Airstream Control Script", long_about = None)]
+#[command(name = "izone", author = "Rufus P. Shrestha <rufus.shrestha@outlook.com.au>", version = env!("CARGO_PKG_VERSION"))]
+#[command(about = "Airstream iZone Controller", long_about = None)]
 struct Cli {
     #[arg(short = 'v', long = "verbose", help = "Show full JSON output for status queries and API responses.")]
     verbose: bool,
