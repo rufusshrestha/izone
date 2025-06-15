@@ -1,7 +1,7 @@
 // izone/src/helpers.rs
 
-use colored::Colorize; // Removed `Color` as it was unused
-use serde::{Deserializer, Deserialize}; // <--- ADDED `Deserialize` here
+use colored::Colorize;
+use serde::{Deserializer, Deserialize};
 use serde::de::Error; // Import Error trait from serde::de
 
 /// Formats temperature from iZone raw (e.g., 2100 -> 21.0)
@@ -60,7 +60,7 @@ pub fn deserialize_int_as_bool<'de, D>(deserializer: D) -> Result<bool, D::Error
 where
     D: Deserializer<'de>,
 {
-    let i = i8::deserialize(deserializer)?; // This line now works
+    let i = i8::deserialize(deserializer)?;
     match i {
         0 => Ok(false),
         1 => Ok(true),
@@ -68,6 +68,7 @@ where
     }
 }
 
+#[allow(dead_code)] // Added this attribute to suppress the warning
 pub fn get_visible_length(s: &str) -> usize {
     let mut len = 0;
     let mut in_escape = false;

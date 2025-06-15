@@ -4,11 +4,11 @@ use std::collections::HashMap;
 
 // Constants for iZone API
 pub const IZONE_IP: &str = "http://192.168.1.130";
-pub const QUERY_URL: &str = "http://192.168.1.130/iZoneRequestV2";
-pub const COMMAND_URL: &str = "http://192.168.1.130/iZoneCommandV2";
+pub const QUERY_URL_SUFFIX: &str = "/iZoneRequestV2";
+pub const COMMAND_URL_SUFFIX: &str = "/iZoneCommandV2";
 
 // Define zones and their corresponding API indices.
-lazy_static::lazy_static! { // Use the fully qualified path here
+lazy_static::lazy_static! {
     pub static ref ZONES: HashMap<&'static str, u8> = {
         let mut m = HashMap::new();
         m.insert("kitchen", 0);
@@ -24,6 +24,4 @@ lazy_static::lazy_static! { // Use the fully qualified path here
 }
 
 // Global verbose flag (needs to be pub for external access)
-// Note: Using static mut is generally discouraged due to thread safety
-// but acceptable for a single-threaded CLI script.
 pub static mut VERBOSE: bool = false;

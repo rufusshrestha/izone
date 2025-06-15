@@ -3,8 +3,8 @@
 use clap::{Args, Parser}; // Import Args
 use reqwest::blocking::Client;
 
-#[macro_use]
-extern crate lazy_static;
+// #[macro_use] // Removed this line
+extern crate lazy_static; // This line can stay, but `#[macro_use]` is not needed here
 
 // Declare modules
 mod api;

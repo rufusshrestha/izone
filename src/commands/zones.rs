@@ -5,25 +5,13 @@ use serde_json::{json, Value};
 use colored::Colorize;
 use std::process::exit;
 
-use crate::api::{query_izone_raw, send_command};
+// Corrected imports for API functions and added get_visible_length from helpers
+use crate::api::{make_query_request, make_command_request};
 use crate::constants::{self, ZONES}; // Import the constants module itself, and ZONES
-use crate::helpers::{format_temp, get_battery_level_text, get_zone_type_text};
+use crate::helpers::{format_temp, get_battery_level_text, get_zone_type_text, get_visible_length};
 use crate::models::ZonesV2Response;
 
-// Helper function to calculate visible length, ignoring ANSI escape codes
-fn get_visible_length(s: &str) -> usize {
-    let mut len = 0;
-    let mut in_escape = false;
-    for c in s.chars() {
-        match c {
-            '\x1B' => in_escape = true, // Start of an ANSI escape sequence
-            'm' if in_escape => in_escape = false, // End of a common ANSI color sequence
-            _ if in_escape => { /* Do nothing, part of escape sequence */ },
-            _ => len += c.len_utf8(), // Count visible character length (works for UTF-8 chars)
-        }
-    }
-    len
-}
+// Removed: Duplicate get_visible_length helper function as it's now imported from helpers.rs
 
 pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Option<&str>) {
     let zone_index = match ZONES.get(zone_name) {
@@ -63,7 +51,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
             println!("╠{}╣", "═".repeat(BOX_WIDTH));
             let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
 
-            let response_value = match query_izone_raw(client, &query_data) {
+            // Using make_query_request and handling its Result
+            let response_value = match make_query_request(client, query_data) {
                 Ok(val) => val,
                 Err(e) => {
                     eprintln!("{}", format!("Failed to retrieve zone status: {} Room", e).red());
@@ -181,7 +170,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
         }
         "on" | "auto" => {
             let command_data = json!({"ZoneMode":{"Index":zone_index,"Mode":3}});
-            send_command(client, &command_data)
+            // Using make_command_request and handling its Result
+            make_command_request(client, command_data)
                 .expect("Failed to send ON/AUTO command");
             println!("╔{}╗", "═".repeat(BOX_WIDTH));
             println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
@@ -194,7 +184,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
         }
         "off" => {
             let command_data = json!({"ZoneMode":{"Index":zone_index,"Mode":2}});
-            send_command(client, &command_data)
+            // Using make_command_request and handling its Result
+            make_command_request(client, command_data)
                 .expect("Failed to send OFF command");
             println!("╔{}╗", "═".repeat(BOX_WIDTH));
             println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
@@ -207,7 +198,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
         }
         "open" => {
             let command_data = json!({"ZoneMode":{"Index":zone_index,"Mode":1}});
-            send_command(client, &command_data)
+            // Using make_command_request and handling its Result
+            make_command_request(client, command_data)
                 .expect("Failed to send OPEN command");
             println!("╔{}╗", "═".repeat(BOX_WIDTH));
             println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
@@ -220,7 +212,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
         }
         "override" => {
             let command_data = json!({"ZoneMode":{"Index":zone_index,"Mode":4}});
-            send_command(client, &command_data)
+            // Using make_command_request and handling its Result
+            make_command_request(client, command_data)
                 .expect("Failed to send OVERRIDE command");
             println!("╔{}╗", "═".repeat(BOX_WIDTH));
             println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
@@ -233,7 +226,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
         }
         "constant" => {
             let command_data = json!({"ZoneMode":{"Index":zone_index,"Mode":5}});
-            send_command(client, &command_data)
+            // Using make_command_request and handling its Result
+            make_command_request(client, command_data)
                 .expect("Failed to send CONSTANT command");
             println!("╔{}╗", "═".repeat(BOX_WIDTH));
             println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
@@ -251,7 +245,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
 
             let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
 
-            let response_value = match query_izone_raw(client, &query_data) {
+            // Using make_query_request and handling its Result
+            let response_value = match make_query_request(client, query_data) {
                 Ok(val) => val,
                 Err(e) => {
                     eprintln!("{}", format!("Failed to retrieve zone temperature: {}", e).red());
@@ -301,7 +296,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
 
             let command_data =
                 json!({"ZoneSetpoint":{"Index":zone_index,"Setpoint":setpoint_int}});
-            send_command(client, &command_data)
+            // Using make_command_request and handling its Result
+            make_command_request(client, command_data)
                 .expect("Failed to set setpoint");
             println!("╔{}╗", "═".repeat(BOX_WIDTH));
             println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
@@ -328,7 +324,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
             }
 
             let command_data = json!({"ZoneMaxAir":{"Index":zone_index,"MaxAir":max_air}});
-            send_command(client, &command_data)
+            // Using make_command_request and handling its Result
+            make_command_request(client, command_data)
                 .expect("Failed to set max airflow");
             println!("╔{}╗", "═".repeat(BOX_WIDTH));
             println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
@@ -355,7 +352,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
             }
 
             let command_data = json!({"ZoneMinAir":{"Index":zone_index,"MinAir":min_air}});
-            send_command(client, &command_data)
+            // Using make_command_request and handling its Result
+            make_command_request(client, command_data)
                 .expect("Failed to set min airflow");
             println!("╔{}╗", "═".repeat(BOX_WIDTH));
             println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
@@ -377,7 +375,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
                 exit(1);
             }
             let command_data = json!({"ZoneName":{"Index":zone_index,"Name":new_name}});
-            send_command(client, &command_data)
+            // Using make_command_request and handling its Result
+            make_command_request(client, command_data)
                 .expect("Failed to set zone name");
             println!("╔{}╗", "═".repeat(BOX_WIDTH));
             println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
@@ -407,7 +406,7 @@ pub fn get_all_zones_summary(client: &Client) {
     const TEMP_COL_WIDTH: usize = 12; // e.g., "Temp: 20.0°C" (12 visible chars)
     const SETPOINT_COL_WIDTH: usize = 15; // e.g., "Setpoint: 20.0°C" (15 visible chars)
     const DAMPER_COL_WIDTH: usize = 13; // e.g., "Damper: 100%%" (13 visible chars)
-    const STATUS_COL_WIDTH: usize = 25; // Max space for additional status, e.g., " DmpFlt SnsFlt LowBatt"
+    const STATUS_COL_WIDTH: usize = 25; // Max space for additional status, e.g., "DmpFlt SnsFlt LowBatt"
 
     // Calculate the total inner content width
     // Name (15) + ": " (2) + Mode (8) + " " (1) + Temp (12) + " " (1) + Setpoint (15) + " " (1) + Damper (13) + " " (1) + Status (25)
@@ -426,7 +425,8 @@ pub fn get_all_zones_summary(client: &Client) {
     for (&zone_index, zone_name) in ZONES.values().zip(ZONES.keys()) {
         let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
 
-        let response_value = match query_izone_raw(client, &query_data) {
+        // Using make_query_request and handling its Result
+        let response_value = match make_query_request(client, query_data) {
             Ok(val) => val,
             Err(e) => {
                 let error_line_prefix_raw = format!("{:<NAME_COL_WIDTH$}: {}", zone_name.replace(' ', "_"), "ERROR retrieving status: ");
