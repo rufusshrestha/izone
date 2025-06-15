@@ -43,7 +43,7 @@ pub fn get_system_status(client: &Client) {
     let system = system_v2_response.system_v2;
 
     // Section 1: General Status
-    const LABEL_WIDTH: usize = 15; // "Aircon Power:" is 10 chars, "Set Temp:" is 9. "Temperature:" is 12. Max needed is "Aircon Power:".
+    const LABEL_WIDTH: usize = 23;
 
     let status_text = if system.sys_on {
         "ON".green()
@@ -61,8 +61,8 @@ pub fn get_system_status(client: &Client) {
 
     let sys_on_line = format!("{:width$} {}", "Aircon Power:", status_text, width = LABEL_WIDTH);
     let sys_mode_line = format!("{:width$} {}", "Mode:", get_colored_system_mode(system.sys_mode), width = LABEL_WIDTH);
-    let sys_temp_line = format!("{:width$} {}°C", "Temperature:", format_temp(system.temp).cyan(), width = LABEL_WIDTH);
-    let sys_setpoint_line = format!("{:width$} {}°C", "Set Temp:", format_temp(system.setpoint), width = LABEL_WIDTH);
+    let sys_temp_line = format!("{:width$} {}°C", "Controller Temperature:", format_temp(system.temp).cyan(), width = LABEL_WIDTH);
+    let sys_setpoint_line = format!("{:width$} {}°C", "Target Setpoint:", format_temp(system.setpoint), width = LABEL_WIDTH);
     let sys_fan_line = format!("{:width$} {}", "Fan Speed:", get_fan_speed_text(system.sys_fan), width = LABEL_WIDTH);
     let ac_error_line = format!("{:width$} {}", "AC Error:", ac_error_text, width = LABEL_WIDTH-1); // Using the new ac_error_text
 
