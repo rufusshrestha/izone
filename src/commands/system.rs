@@ -51,12 +51,20 @@ pub fn get_system_status(client: &Client) {
         "OFF".red()
     };
 
+    // Conditionally color the AC Error message, trimming whitespace
+    let ac_error_text = if system.ac_error.trim() == "OK" {
+        system.ac_error.green()
+    } else {
+        system.ac_error.red()
+    };
+
+
     let sys_on_line = format!("{:width$} {}", "System On:", status_text, width = LABEL_WIDTH);
     let sys_mode_line = format!("{:width$} {}", "Mode:", get_colored_system_mode(system.sys_mode), width = LABEL_WIDTH);
     let sys_temp_line = format!("{:width$} {}°C", "Temperature:", format_temp(system.temp).cyan(), width = LABEL_WIDTH);
     let sys_setpoint_line = format!("{:width$} {}°C", "Set Temp:", format_temp(system.setpoint), width = LABEL_WIDTH);
     let sys_fan_line = format!("{:width$} {}", "Fan Speed:", get_fan_speed_text(system.sys_fan), width = LABEL_WIDTH);
-    let ac_error_line = format!("{:width$} {}", "AC Error:", system.ac_error.normal(), width = LABEL_WIDTH-1);
+    let ac_error_line = format!("{:width$} {}", "AC Error:", ac_error_text, width = LABEL_WIDTH-1); // Using the new ac_error_text
 
 
     // Adjust padding based on visible length for colored strings
