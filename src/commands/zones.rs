@@ -405,7 +405,7 @@ pub fn get_all_zones_summary(client: &Client) {
     const MODE_COL_WIDTH: usize = 8;  // e.g., "OVRIDE" or "UNKNOWN" - longest is 7, so 8 is good.
     const TEMP_COL_WIDTH: usize = 12; // e.g., "Temp: 20.0°C" (12 visible chars)
     const SETPOINT_COL_WIDTH: usize = 15; // e.g., "Setpoint: 20.0°C" (15 visible chars)
-    const DAMPER_COL_WIDTH: usize = 13; // e.g., "Damper: 100%%" (13 visible chars)
+    const DAMPER_COL_WIDTH: usize = 13; // e.g., "Damper: 100%" (13 visible chars)
     const STATUS_COL_WIDTH: usize = 25; // Max space for additional status, e.g., "DmpFlt SnsFlt LowBatt"
 
     // Calculate the total inner content width
@@ -515,7 +515,7 @@ pub fn get_all_zones_summary(client: &Client) {
         let setpoint_part = format!("{:<setpoint_padding$}", setpoint_part_raw);
 
         // 5. Damper (not colored, left-aligned within its column)
-        let damper_part_raw = format!("Damper: {}%%", zone.damper_pos);
+        let damper_part_raw = format!("Damper: {}%", zone.damper_pos);
         let damper_padding = DAMPER_COL_WIDTH - get_visible_length(&damper_part_raw) + damper_part_raw.len();
         let damper_part = format!("{:<damper_padding$}", damper_part_raw);
 
