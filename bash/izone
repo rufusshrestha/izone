@@ -154,7 +154,7 @@ get_system_status() {
         error_text="${RED}$ac_error${NC}" # Error in Red
     fi
 
-    echo "Aircon Status:           ${status_text}"
+    echo "Aircon Power:            ${status_text}"
     echo "Mode:                    $(get_colored_system_mode "$sys_mode")"
     echo "Controller Temperature:  ${CYAN}$(format_temp "$sys_temp")°C${NC}"
     echo "Target Setpoint:         $(format_temp "$sys_setpoint")°C"
