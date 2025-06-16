@@ -52,12 +52,12 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
             get_zone_temperature(client, zone_name);
             return; // Exit function after displaying temperature, no command to send
         }
-        "on" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":3}})), // Auto mode (ON)
-        "off" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":0}})), // Off mode
-        "open" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":1}})), // Open mode
-        "auto" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":3}})), // Auto mode
-        "override" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":4}})), // Override mode
-        "constant" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":2}})), // Constant mode
+        "on" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":3}})), // Auto mode (ON)
+        "off" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":0}})), // Off mode
+        "open" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":1}})), // Open mode
+        "auto" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":3}})), // Auto mode
+        "override" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":4}})), // Override mode
+        "constant" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":2}})), // Constant mode
         "set_setpoint" => {
             let setpoint_raw = value.expect("Setpoint temperature is required for set_setpoint action.");
             let setpoint_float: f32 = setpoint_raw
