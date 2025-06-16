@@ -39,8 +39,9 @@ enum Commands {
     Off,
     /// Get the overall Aircon status (detailed).
     Status,
-    /// Get only the current system temperature.
-    SystemTemp,
+    /// Get current master controller temperature.
+    #[clap(name = "controller-temp")] // Changed from SystemTemp
+    ControllerTemp, // Changed from SystemTemp
     /// Control or query a specific zone.
     #[clap(name = "zone")]
     Zone(ZoneArgs),
@@ -66,7 +67,7 @@ struct ZoneArgs {
 enum ZoneAction {
     /// Get detailed status for the zone.
     Status,
-    /// Get only the current system temperature for the zone.
+    /// Get only the current temperature for the zone.
     Temp,
     /// Set zone to Auto mode (typically 'ON').
     On,
@@ -207,7 +208,7 @@ fn main() {
         Commands::Status => {
             system::get_system_status(&client);
         }
-        Commands::SystemTemp => {
+        Commands::ControllerTemp => { // Changed from SystemTemp
             system::get_system_temperature(&client);
         }
         Commands::Mode(mode_wrapper) => {

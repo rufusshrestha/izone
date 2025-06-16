@@ -80,7 +80,7 @@ pub fn get_system_temperature(client: &Client) {
     const PADDING_WIDTH: usize = BOX_WIDTH - 2;
 
     println!("╔{}╗", "═".repeat(BOX_WIDTH));
-    println!("║ {:^padding_width$} ║", "System Temperature", padding_width = PADDING_WIDTH);
+    println!("║ {:^padding_width$} ║", "Controller Temperature", padding_width = PADDING_WIDTH);
     println!("╠{}╣", "═".repeat(BOX_WIDTH));
 
     let query_data = json!({ "iZoneV2Request": { "Type": 1, "No": 0, "No1": 0 } });
@@ -88,16 +88,16 @@ pub fn get_system_temperature(client: &Client) {
     let response_value = match make_query_request(client, query_data) {
         Ok(val) => val,
         Err(e) => {
-            eprintln!("{}", format!("Error querying system temperature: {}", e).red());
+            eprintln!("{}", format!("Error querying controller temperature: {}", e).red());
             exit(1);
         }
     };
 
     let system_response: SystemV2Response = serde_json::from_value(response_value.clone()) // Cloned here for verbose output
-        .expect("Failed to parse system temperature response");
+        .expect("Failed to parse controller temperature response");
 
     let temp_text = format_temp(system_response.system_v2.temp);
-    let temp_line = format!("Current System Temperature: {}°C", temp_text.cyan());
+    let temp_line = format!("Current Controller Temperature: {}°C", temp_text.cyan());
     println!("║ {:<padding_width$} ║", temp_line, padding_width = PADDING_WIDTH - get_visible_length(&temp_line) + temp_line.len());
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 

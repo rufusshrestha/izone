@@ -4,12 +4,26 @@ use reqwest::blocking::Client;
 use serde_json::{json, Value};
 use colored::Colorize;
 use std::process::exit;
+use std::thread; // Added for sleep functionality
+use std::time::Duration; // Added for duration specification
 
 // Corrected imports for API functions and added get_visible_length from helpers
 use crate::api::{make_query_request, make_command_request};
 use crate::constants::{self, ZONES}; // Import the constants module itself, and ZONES
-use crate::helpers::{format_temp, get_battery_level_text, get_zone_type_text, get_visible_length, get_sensor_fault_text, get_colored_system_mode}; // Added get_colored_system_mode
+use crate::helpers::{format_temp, get_battery_level_text, get_zone_type_text, get_visible_length, get_sensor_fault_text}; // Added get_colored_system_mode
 use crate::models::ZonesV2Response; // Removed ZoneListV2Response from here, will use full path where needed
+
+// New helper function to get colored zone mode text
+fn get_colored_zone_mode(mode: u8) -> String {
+    match mode {
+        1 => "OPEN".yellow().to_string(),
+        2 => "OFF".red().to_string(),
+        3 => "CLIMATE".green().to_string(),
+        4 => "OVERRIDE".yellow().to_string(),
+        5 => "CONSTANT".yellow().to_string(),
+        _ => format!("UNKNOWN ({})", mode).normal().to_string(),
+    }
+}
 
 pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Option<&str>) {
     let zone_index = match ZONES.get(zone_name) {
@@ -52,12 +66,11 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
             get_zone_temperature(client, zone_name);
             return; // Exit function after displaying temperature, no command to send
         }
-        "on" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":3}})), // Auto mode (ON)
-        "off" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":0}})), // Off mode
         "open" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":1}})), // Open mode
-        "auto" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":3}})), // Auto mode
+        "off" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":2}})), // Off mode
+        "on" | "auto" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":3}})), // Auto mode (ON)
         "override" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":4}})), // Override mode
-        "constant" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":2}})), // Constant mode
+        "constant" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":5}})), // Constant mode
         "set_setpoint" => {
             let setpoint_raw = value.expect("Setpoint temperature is required for set_setpoint action.");
             let setpoint_float: f32 = setpoint_raw
@@ -124,14 +137,45 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
 
     // Only make a command request if command_data is Some
     if let Some(cmd_data) = command_data {
-        make_command_request(client, cmd_data)
+        make_command_request(client, cmd_data.clone()) // Use .clone() to allow sending the same data twice
             .expect(&format!("Failed to execute '{}' for zone '{}'", action, zone_name));
+
+        // If the action is "set_setpoint", call the API a second time after a delay
+        if action == "set_setpoint" {
+            thread::sleep(Duration::from_millis(100)); // 0.1 second delay
+            make_command_request(client, cmd_data)
+                .expect(&format!("Failed to re-execute '{}' for zone '{}' after delay", action, zone_name));
+        }
 
         println!("╔{}╗", "═".repeat(BOX_WIDTH));
         println!("║ {:^padding_width$} ║", format!("Zone Control: {}", capitalized_zone_name), padding_width = PADDING_WIDTH);
         println!("╠{}╣", "═".repeat(BOX_WIDTH));
-        let message = format!("Action '{}' for zone '{}' successful.", action.green(), capitalized_zone_name.green());
-        println!("║ {:<padding_width$} ║", message, padding_width = PADDING_WIDTH - get_visible_length(&message) + message.len());
+        let message = match action {
+            "on" | "auto" => format!("Zone '{}' successfully set to {} mode.", capitalized_zone_name.green(), "Auto".green()),
+            "off" => format!("Zone '{}' successfully turned {}.", capitalized_zone_name.green(), "OFF".red()),
+            "open" => format!("Zone '{}' successfully set to {} mode.", capitalized_zone_name.green(), "OPEN".yellow()),
+            "override" => format!("Zone '{}' successfully set to {} mode.", capitalized_zone_name.green(), "Override".yellow()),
+            "constant" => format!("Zone '{}' successfully set to {} mode.", capitalized_zone_name.green(), "Constant".yellow()),
+            "set_setpoint" => {
+                let setpoint_raw = value.expect("Setpoint temperature is required for set_setpoint action.");
+                format!("Setpoint for zone '{}' successfully set to {}°C", capitalized_zone_name.green(), setpoint_raw.green())
+            },
+            "set_max_air" => {
+                let percentage_raw = value.expect("Max air percentage is required.");
+                format!("Max air for zone '{}' successfully set to {}%.", capitalized_zone_name.green(), percentage_raw.green())
+            },
+            "set_min_air" => {
+                let percentage_raw = value.expect("Min air percentage is required.");
+                format!("Min air for zone '{}' successfully set to {}%.", capitalized_zone_name.green(), percentage_raw.green())
+            },
+            "set_name" => {
+                let new_name = value.expect("New zone name is required.");
+                format!("Zone '{}' successfully renamed to '{}'.", capitalized_zone_name.green(), new_name.green())
+            },
+            _ => format!("Action '{}' for zone '{}' successful.", action.green(), capitalized_zone_name.green()),
+        };
+        // Adjusted padding for messages in control_zone to fix off-by-one alignment
+        println!("║ {:<width$} ║", message, width = PADDING_WIDTH - get_visible_length(&message) + message.len() - 1);
         println!("╚{}╝", "═".repeat(BOX_WIDTH));
     }
 }
@@ -181,7 +225,8 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
 
     let zone = zone_response.zones_v2;
 
-    let mode_text = get_colored_system_mode(zone.mode); // Re-using system mode for zones
+    // Changed to use the new get_colored_zone_mode for zone status display
+    let mode_text = get_colored_zone_mode(zone.mode);
     let temp_text = format_temp(zone.temp);
     let setpoint_text = format_temp(zone.setpoint);
     let damper_pos_text = format!("{}%", zone.damper_pos);
@@ -208,7 +253,7 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
 
     print_line("Name:", zone.name.normal().to_string());
     print_line("Mode:", mode_text);
-    print_line("Current Temp:", format!("{}°C", temp_text).cyan().to_string());
+    print_line("Current Temperature:", format!("{}°C", temp_text).cyan().to_string());
     print_line("Setpoint:", format!("{}°C", setpoint_text).normal().to_string());
     print_line("Damper Position:", damper_pos_text.normal().to_string());
     print_line("Zone Type:", zone_type_text.normal().to_string());
@@ -263,6 +308,9 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
     // Changed Type from 3 to 2 for zone temperature queries
     let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
 
+    const BOX_WIDTH_TEMP: usize = 56; // Adjust based on example
+    const PADDING_WIDTH_TEMP: usize = BOX_WIDTH_TEMP - 2;
+
     let response_value = match make_query_request(client, query_data) {
         Ok(val) => val,
         Err(e) => {
@@ -275,7 +323,25 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
         .expect("Failed to parse zone temperature response");
 
     let temp_text = format_temp(zone_response.zones_v2.temp);
-    println!("Current Temperature for {}: {}°C", zone_name.to_uppercase(), temp_text.cyan());
+
+    // Capitalize the first letter of zone_name for the header, and keep the rest as is
+    let capitalized_zone_name_for_header = {
+        let mut chars = zone_name.chars();
+        match chars.next() {
+            None => String::new(),
+            Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+        }
+    };
+
+    println!("╔{}╗", "═".repeat(BOX_WIDTH_TEMP));
+    // Corrected the named argument for padding_width
+    println!("║ {:^width$} ║", format!("Zone Temperature: {}", capitalized_zone_name_for_header), width = PADDING_WIDTH_TEMP);
+    println!("╠{}╣", "═".repeat(BOX_WIDTH_TEMP));
+
+    let message = format!("{} Room Temperature: {}°C", capitalized_zone_name_for_header, temp_text.cyan());
+    // Corrected the named argument for padding_width
+    println!("║ {:<width$} ║", message, width = PADDING_WIDTH_TEMP - get_visible_length(&message) + message.len());
+    println!("╚{}╝", "═".repeat(BOX_WIDTH_TEMP));
 }
 
 
@@ -351,14 +417,8 @@ pub fn get_all_zones_summary(client: &Client) {
     for zone in &zones_data { // Changed to iterate over a reference
         let zone_name_display = zone.name.replace(' ', "_"); // Replace spaces with underscores for display
 
-        let zone_mode_colored_text = match zone.mode {
-            1 => "OPEN".yellow().to_string(),
-            2 => "OFF".red().to_string(),
-            3 => "ON".green().to_string(),
-            4 => "OVRIDE".yellow().to_string(),
-            5 => "CONST".yellow().to_string(),
-            _ => "UNKNOWN".normal().to_string(),
-        };
+        // Changed to use the new get_colored_zone_mode for zone summary display
+        let zone_mode_colored_text = get_colored_zone_mode(zone.mode);
 
         let mut additional_status_colored = String::new();
         if zone.damper_fault == 1 {
