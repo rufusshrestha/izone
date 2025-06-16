@@ -47,8 +47,8 @@ enum Commands {
     /// Control the main Aircon system mode (e.g., Cool, Heat, Vent).
     #[clap(name = "mode")]
     Mode(ModeActionWrapper),
-    /// Manage schedules (favourites).
-    #[clap(name = "schedule", alias = "fav")] // Modified: Add alias "fav"
+    /// Manage favourites / schedules.
+    #[clap(name = "fav", alias = "schedule")] // Modified: Add alias "fav"
     Schedule(ScheduleArgs),
 }
 
@@ -142,7 +142,7 @@ struct ScheduleArgs {
 // New: ScheduleAction enum for schedule subcommands
 #[derive(clap::Subcommand, Debug)]
 enum ScheduleAction {
-    /// Get status for a specific schedule, or a summary of all schedules / favourites if no index is provided. // Modified: Updated help message
+    /// Get status for a specific schedule, or a summary of all favourites / schedules if no index is provided.
     Status,
     /// Set the name of a schedule.
     #[clap(name = "set-name")]
@@ -172,9 +172,9 @@ enum ScheduleAction {
         #[arg(long, help = "Fan speed (low, medium, high, auto, top, nongasheat)")]
         fan: Option<String>,
     },
-    /// Enable a schedule.
+    /// Enable a schedule. E.g, izone fav -i 0 enable
     Enable,
-    /// Disable a schedule.
+    /// Disable a schedule. E.g, izone fav -i 0 disable
     Disable,
     /// Set specific zone modes and setpoints within a schedule.
     #[clap(name = "set-zones")]
