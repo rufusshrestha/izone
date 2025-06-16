@@ -261,15 +261,15 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
     print_line("Max Air:", format!("{}%", zone.max_air).normal().to_string());
     print_line("Min Air:", format!("{}%", zone.min_air).normal().to_string());
     print_line("Constant:", zone.constant.to_string().normal().to_string());
-    print_line("Constant A:", zone.constant_a.to_string().normal().to_string());
+    print_line("Constant Air:", zone.constant_a.to_string().normal().to_string());
     print_line("Master:", zone.master.to_string().normal().to_string());
     print_line("Damper Fault:", zone.damper_fault.to_string().normal().to_string());
-    print_line("Sensor Fault:", sensor_fault_text); // Using the new helper
+    print_line("Sensor Fault:", sensor_fault_text);
     print_line("Damper Skip:", zone.damper_skip.to_string().normal().to_string());
     print_line("Isense:", zone.isense.to_string().normal().to_string());
     print_line("Calibration:", zone.calibration.to_string().normal().to_string());
     print_line("RF Signal:", rf_signal_text.normal().to_string());
-    print_line("Battery Voltage:", batt_volt_text);
+    print_line("Battery Voltage:", format!("{}V", batt_volt_text).normal().to_string());
     print_line("Area:", zone.area.to_string().normal().to_string());
     print_line("Bypass:", zone.bypass.to_string().normal().to_string());
     print_line("Balance Max:", format!("{}%", zone.balance_max).normal().to_string());
@@ -305,7 +305,6 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
         }
     };
 
-    // Changed Type from 3 to 2 for zone temperature queries
     let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
 
     const BOX_WIDTH_TEMP: usize = 56; // Adjust based on example
