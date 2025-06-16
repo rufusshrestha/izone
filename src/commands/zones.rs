@@ -175,7 +175,7 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
             _ => format!("Action '{}' for zone '{}' successful.", action.green(), capitalized_zone_name.green()),
         };
         // Adjusted padding for messages in control_zone to fix off-by-one alignment
-        println!("║ {:<width$} ║", message, width = PADDING_WIDTH - get_visible_length(&message) + message.len() - 1);
+        println!("║ {:<width$} ║", message, width = PADDING_WIDTH - get_visible_length(&message) + message.len());
         println!("╚{}╝", "═".repeat(BOX_WIDTH));
     }
 }

@@ -98,7 +98,7 @@ pub fn get_system_temperature(client: &Client) {
 
     let temp_text = format_temp(system_response.system_v2.temp);
     let temp_line = format!("Current Controller Temperature: {}°C", temp_text.cyan());
-    println!("║ {:<padding_width$} ║", temp_line, padding_width = PADDING_WIDTH - get_visible_length(&temp_line) + temp_line.len());
+    println!("║ {:<padding_width$} ║", temp_line, padding_width = PADDING_WIDTH -1 - get_visible_length(&temp_line) + temp_line.len());
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 
     unsafe {

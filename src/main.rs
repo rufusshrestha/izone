@@ -37,19 +37,20 @@ enum Commands {
     On,
     /// Turn off the entire AC system.
     Off,
-    /// Get the overall Aircon status (detailed).
+    /// Get the overall Aircon status (detailed). (status|s)
+    #[clap(name = "status", aliases = &["s", "status"])]
     Status,
-    /// Get current master controller temperature.
-    #[clap(name = "controller-temp")] // Changed from SystemTemp
+    /// Get current master controller temperature. (contrommer-temp|ct)
+    #[clap(name = "controller-temp", alias = "ct")] // Changed from SystemTemp
     ControllerTemp, // Changed from SystemTemp
-    /// Control or query a specific zone.
-    #[clap(name = "zone")]
+    /// Control or query a specific zone. (zone|z)
+    #[clap(name = "zone", alias = "z")]
     Zone(ZoneArgs),
-    /// Control the main Aircon system mode (e.g., Cool, Heat, Vent).
-    #[clap(name = "mode")]
+    /// Control the main Aircon system mode (e.g., Cool, Heat, Vent). (mode|m)
+    #[clap(name = "mode", alias = "m")]
     Mode(ModeActionWrapper),
-    /// Manage favourites / schedules.
-    #[clap(name = "fav", alias = "schedule")] // Modified: Add alias "fav"
+    /// Manage favourites / schedules. (fav|schedule|f|s)
+    #[clap(name = "fav", aliases = &["schedule", "f", "s"])] // Modified: Add alias "fav"
     Schedule(ScheduleArgs),
 }
 
@@ -65,9 +66,11 @@ struct ZoneArgs {
 
 #[derive(clap::Subcommand, Debug)]
 enum ZoneAction {
-    /// Get detailed status for the zone.
+    /// Get detailed status for the zone. (status|s)
+    #[clap(name = "status", aliases = &["s"])]
     Status,
-    /// Get only the current temperature for the zone.
+    /// Get only the current temperature for the zone. (temp|t)
+    #[clap(name = "temp", alias = "t")]
     Temp,
     /// Set zone to Auto mode (typically 'ON').
     On,
@@ -81,8 +84,8 @@ enum ZoneAction {
     Override,
     /// Set zone to Constant mode.
     Constant,
-    /// Set zone setpoint (e.g., 22.5).
-    #[clap(name = "set-setpoint")]
+    /// Set zone setpoint (e.g., 22.5). (set-point | setpoint | sp)
+    #[clap(name = "set-setpoint", aliases = &["sp", "setpoint"])]
     SetSetpoint {
         #[arg(help = "Temperature in Celsius (e.g., 22.5)")]
         temperature: String,
@@ -105,7 +108,8 @@ enum ZoneAction {
         #[arg(help = "New name for the zone (max 15 characters)")]
         new_name: String,
     },
-    /// Get a summary of all zones.
+    /// Get a summary of all zones. (summary | sum)
+    #[clap(name = "summary", alias = "sum")]
     Summary,
 }
 
