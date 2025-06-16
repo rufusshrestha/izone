@@ -157,7 +157,8 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
         }
     };
 
-    let query_data = json!({ "iZoneV2Request": { "Type": 3, "No": zone_index, "No1": 0 } });
+    // Changed Type from 3 to 2 for zone status queries
+    let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
 
     const BOX_WIDTH: usize = 60; // Slightly wider box for detailed zone status
     const PADDING_WIDTH: usize = BOX_WIDTH - 2;
@@ -194,9 +195,14 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
     // accounting for invisible ANSI escape codes.
     let print_line = |label: &str, value: String| {
         let visible_value_len = get_visible_length(&value);
-        let ansi_offset = value.len() - visible_value_len;
-        let padding = PADDING_WIDTH - LABEL_WIDTH - visible_value_len; // Calculate spaces between label and value
-        println!("║ {:<LABEL_WIDTH$}{:padding$}{}{} ║", label, "", value, " ".repeat(ansi_offset), padding=padding);
+        let space_between_label_and_value = PADDING_WIDTH - LABEL_WIDTH - visible_value_len;
+
+        println!(
+            "║ {:<LABEL_WIDTH$}{}{} ║",
+            label,
+            " ".repeat(space_between_label_and_value),
+            value
+        );
     };
 
 
@@ -254,7 +260,8 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
         }
     };
 
-    let query_data = json!({ "iZoneV2Request": { "Type": 3, "No": zone_index, "No1": 0 } });
+    // Changed Type from 3 to 2 for zone temperature queries
+    let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
 
     let response_value = match make_query_request(client, query_data) {
         Ok(val) => val,
@@ -410,7 +417,7 @@ pub fn get_all_zones_summary(client: &Client) {
         );
 
         // Print the assembled line, using overall padding logic for the entire line
-        println!("║ {:<pw$}║", final_line_content, pw = SUMMARY_INNER_CONTENT_WIDTH - get_visible_length(&final_line_content) + final_line_content.len());
+        println!("║ {:<pw$}║", final_line_content, pw = SUMMARY_INNER_CONTENT_WIDTH-1 - get_visible_length(&final_line_content) + final_line_content.len());
     }
     println!("╚{}╝", "═".repeat(SUMMARY_BOX_WIDTH));
     unsafe {

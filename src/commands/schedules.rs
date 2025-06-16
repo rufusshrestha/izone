@@ -49,12 +49,13 @@ pub fn get_schedule_status(client: &Client, schedule_index: u8) {
 
     let schedule = schedules_wrapper.schedules_v2;
 
-    // Helper to print formatted lines
+    // Helper to print formatted lines - CORRECTED
     let print_line = |label: &str, value: String| {
         let visible_value_len = get_visible_length(&value);
-        let ansi_offset = value.len() - visible_value_len;
-        let padding = PADDING_WIDTH - LABEL_WIDTH - visible_value_len;
-        println!("║ {:<LABEL_WIDTH$}{:padding$}{}{} ║", label, "", value, " ".repeat(ansi_offset), padding=padding);
+        let actual_padding_needed = PADDING_WIDTH - LABEL_WIDTH - visible_value_len;
+        // Ensure actual_padding_needed is not negative
+        let final_padding = actual_padding_needed.max(0);
+        println!("║ {:<LABEL_WIDTH$}{:final_padding$}{} ║", label, "", value);
     };
 
     print_line("Name:", schedule.name.normal().to_string());
@@ -130,17 +131,21 @@ pub fn get_schedule_status(client: &Client, schedule_index: u8) {
 }
 
 pub fn get_all_schedules_summary(client: &Client) {
-    const SUMMARY_BOX_WIDTH: usize = 94;
+    // Current `SUMMARY_BOX_WIDTH` (96) determines the number of '═' characters.
+    // This results in a total line length of 98 characters (96 '═' + 2 corners '╔'/'╗').
+    // The inner content for the title needs 96 - 2 = 94 chars.
+    // The inner content for column headers/data rows needs to be 94 chars as well.
+    // CORRECTED: Adjusted DAYS_COL_WIDTH from 40 to 41 to ensure all lines are 98 chars total
+    const SUMMARY_BOX_WIDTH: usize = 96;
     const SUMMARY_INNER_CONTENT_WIDTH: usize = SUMMARY_BOX_WIDTH - 2;
 
     const IDX_COL_WIDTH: usize = 5;
     const NAME_COL_WIDTH: usize = 15;
     const ACTIVE_COL_WIDTH: usize = 8;
     const TIME_COL_WIDTH: usize = 10;
-    const DAYS_COL_WIDTH: usize = 35;
+    const DAYS_COL_WIDTH: usize = 41; // Adjusted from 40 to 41
 
     println!("╔{}╗", "═".repeat(SUMMARY_BOX_WIDTH));
-    // Modified: Changed "SCHEDULE SUMMARY" to "SCHEDULE / FAVOURITES SUMMARY"
     println!("║ {:^width$} ║", "SCHEDULE / FAVOURITES SUMMARY", width = SUMMARY_INNER_CONTENT_WIDTH);
     println!("╠{}╣", "═".repeat(SUMMARY_BOX_WIDTH));
 
@@ -235,28 +240,27 @@ pub fn get_all_schedules_summary(client: &Client) {
             };
             let days_colored = days_display.cyan().to_string();
 
-            let idx_padded = format!("{:<width$}", schedule.index.to_string(), width = IDX_COL_WIDTH);
-            let name_padded = format!("{:<width$}", schedule.name, width = NAME_COL_WIDTH);
-
+            // Calculate actual padding for colored strings based on visible length
             let active_visible_len = get_visible_length(&active_status_colored);
-            let active_padding = ACTIVE_COL_WIDTH.saturating_sub(active_visible_len);
-            let active_padded = format!("{}{}", active_status_colored, " ".repeat(active_padding));
-
-            let start_padded = format!("{:<width$}", start_time_str, width = TIME_COL_WIDTH);
-            let stop_padded = format!("{:<width$}", stop_time_str, width = TIME_COL_WIDTH);
+            let active_padding_needed = ACTIVE_COL_WIDTH.saturating_sub(active_visible_len);
+            let active_display_str = format!("{}{}", active_status_colored, " ".repeat(active_padding_needed));
 
             let days_visible_len = get_visible_length(&days_colored);
-            let days_padding = DAYS_COL_WIDTH.saturating_sub(days_visible_len);
-            let days_padded = format!("{}{}", days_colored, " ".repeat(days_padding));
+            let days_padding_needed = DAYS_COL_WIDTH.saturating_sub(days_visible_len);
+            let days_display_str = format!("{}{}", days_colored, " ".repeat(days_padding_needed));
+
 
             println!(
-                "║ {} {} {} {} {} {} ║",
-                idx_padded,
-                name_padded,
-                active_padded,
-                start_padded,
-                stop_padded,
-                days_padded
+                "║ {:<idx_w$} {:<name_w$} {} {:<time_w$} {:<time_w$} {} ║",
+                schedule.index.to_string(),
+                schedule.name,
+                active_display_str, // Use the manually padded string
+                start_time_str,
+                stop_time_str,
+                days_display_str,   // Use the manually padded string
+                idx_w = IDX_COL_WIDTH,
+                name_w = NAME_COL_WIDTH,
+                time_w = TIME_COL_WIDTH,
             );
         }
     }
