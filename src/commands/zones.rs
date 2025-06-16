@@ -105,12 +105,18 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
             }
             Some(json!({"ZoneName":{"Index":zone_index,"Name":new_name}}))
         }
+        "summary" => { // Handle summary action
+            // This action doesn't send a command to a specific zone,
+            // but rather calls the summary function directly.
+            // No command_data is generated here.
+            None
+        }
         _ => {
             eprintln!(
                 "{}{}{}",
                 "Error: Unknown zone action '".red(),
                 action.red(),
-                "'.\nAvailable actions for zones: status, temp, on, off, open, auto, override, constant, set-setpoint, set-max-air, set-min-air, set-name.".red()
+                "'.\nAvailable actions for zones: status, temp, on, off, open, auto, override, constant, set-setpoint, set-max-air, set-min-air, set-name, summary.".red()
             );
             exit(1); // Exit if unknown action, no command_data to return
         }
@@ -280,7 +286,7 @@ pub fn get_all_zones_summary(client: &Client) {
     const SUMMARY_INNER_CONTENT_WIDTH: usize = NAME_COL_WIDTH + 2 + MODE_COL_WIDTH + 1 + TEMP_COL_WIDTH + 1 + SETPOINT_COL_WIDTH + 1 + DAMPER_COL_WIDTH + 1 + STATUS_COL_WIDTH;
 
     // Total box width (inner content + 2 for "║ " and " ║")
-    const SUMMARY_BOX_WIDTH: usize = SUMMARY_INNER_CONTENT_WIDTH + 1;
+    const SUMMARY_BOX_WIDTH: usize = SUMMARY_INNER_CONTENT_WIDTH + 2;
 
     println!("╔{}╗", "═".repeat(SUMMARY_BOX_WIDTH));
     println!("║ {:^SUMMARY_INNER_CONTENT_WIDTH$} ║", "ZONE SUMMARY");

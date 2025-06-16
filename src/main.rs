@@ -2,6 +2,7 @@
 
 use clap::{Args, Parser}; // Import Args
 use reqwest::blocking::Client;
+use std::process::exit; // Import the exit function from std::process
 
 extern crate lazy_static;
 
@@ -18,6 +19,7 @@ use crate::commands::zones;
 
 /// Command-line arguments using Clap
 #[derive(Parser, Debug)]
+// Corrected the syntax for the #[command] attribute: removed misplaced ')' and ']'
 #[command(name = "izone", author = "Rufus P. Shrestha <rufus.shrestha@outlook.com.au>", version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "Airstream iZone Controller", long_about = None)]
 struct Cli {
@@ -38,8 +40,7 @@ enum Commands {
     Status,
     /// Get only the current system temperature.
     SystemTemp,
-    /// Get a summary of all zones.
-    Zonesummary,
+    // Removed Zonesummary from top-level commands
     /// Control or query a specific zone.
     #[clap(name = "zone")] // Use #[clap] for subcommand naming
     Zone(ZoneArgs),
@@ -50,9 +51,9 @@ enum Commands {
 
 #[derive(Args, Debug)]
 struct ZoneArgs {
-    /// The name of the zone (e.g., "kitchen", "work").
-    #[arg(help = "The name of the zone (e.g., \"kitchen\", \"work\").")] // Corrected quotes
-    name: String,
+    /// The name of the zone (e.g., "kitchen", "work"). Leave empty for summary of all zones.
+    #[arg(help = "The name of the zone (e.g., \"kitchen\", \"work\"). Leave empty for summary of all zones.")] // Corrected quotes
+    name: Option<String>, // Made optional to allow for 'izone zone summary'
 
     #[command(subcommand)]
     action: ZoneAction,
@@ -100,6 +101,8 @@ enum ZoneAction {
         #[arg(help = "New name for the zone (max 15 characters)")]
         new_name: String,
     },
+    /// Get a summary of all zones.
+    Summary, // Added Summary subcommand under ZoneAction
 }
 
 // Wrapper struct to hold ModeArgs as a subcommand
@@ -147,9 +150,6 @@ fn main() {
         Commands::SystemTemp => {
             system::get_system_temperature(&client);
         }
-        Commands::Zonesummary => {
-            zones::get_all_zones_summary(&client); // Adjusted function name to match existing code
-        }
         Commands::Mode(mode_wrapper) => { // Destructure the new wrapper
             let mode_string = match mode_wrapper.action {
                 ModeArgs::Auto => "auto",
@@ -161,43 +161,114 @@ fn main() {
             system::set_system_mode(&client, mode_string);
         }
         Commands::Zone(args) => {
-            let zone_name = args.name.to_lowercase(); // Convert zone name to lowercase for consistent lookup
             match args.action {
                 ZoneAction::Status => {
-                    zones::control_zone(&client, &zone_name, "status", None);
+                    // This now handles both 'izone zone <name> status' and 'izone zone status' (if name is None)
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "status", None);
+                    } else {
+                        // If no zone name is provided, default to getting summary.
+                        // This might be better handled as a separate subcommand 'summary'
+                        // but for now, it's mapped here.
+                        eprintln!("Error: 'izone zone status' requires a zone name. Did you mean 'izone zone summary'?");
+                        exit(1);
+                    }
                 }
                 ZoneAction::Temp => {
-                    zones::control_zone(&client, &zone_name, "temp", None);
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "temp", None);
+                    } else {
+                        eprintln!("Error: 'izone zone temp' requires a zone name.");
+                        exit(1);
+                    }
                 }
                 ZoneAction::On => {
-                    zones::control_zone(&client, &zone_name, "on", None);
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "on", None);
+                    } else {
+                        eprintln!("Error: 'izone zone on' requires a zone name.");
+                        exit(1);
+                    }
                 }
                 ZoneAction::Off => {
-                    zones::control_zone(&client, &zone_name, "off", None);
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "off", None);
+                    } else {
+                        eprintln!("Error: 'izone zone off' requires a zone name.");
+                        exit(1);
+                    }
                 }
                 ZoneAction::Open => {
-                    zones::control_zone(&client, &zone_name, "open", None);
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "open", None);
+                    } else {
+                        eprintln!("Error: 'izone zone open' requires a zone name.");
+                        exit(1);
+                    }
                 }
                 ZoneAction::Auto => {
-                    zones::control_zone(&client, &zone_name, "auto", None);
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "auto", None);
+                    } else {
+                        eprintln!("Error: 'izone zone auto' requires a zone name.");
+                        exit(1);
+                    }
                 }
                 ZoneAction::Override => {
-                    zones::control_zone(&client, &zone_name, "override", None);
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "override", None);
+                    } else {
+                        eprintln!("Error: 'izone zone override' requires a zone name.");
+                        exit(1);
+                    }
                 }
                 ZoneAction::Constant => {
-                    zones::control_zone(&client, &zone_name, "constant", None);
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "constant", None);
+                    } else {
+                        eprintln!("Error: 'izone zone constant' requires a zone name.");
+                        exit(1);
+                    }
                 }
                 ZoneAction::SetSetpoint { temperature } => {
-                    zones::control_zone(&client, &zone_name, "set_setpoint", Some(&temperature));
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "set_setpoint", Some(&temperature));
+                    } else {
+                        eprintln!("Error: 'izone zone set-setpoint' requires a zone name.");
+                        exit(1);
+                    }
                 }
                 ZoneAction::SetMaxAir { percentage } => {
-                    zones::control_zone(&client, &zone_name, "set_max_air", Some(&percentage));
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "set_max_air", Some(&percentage));
+                    } else {
+                        eprintln!("Error: 'izone zone set-max-air' requires a zone name.");
+                        exit(1);
+                    }
                 }
                 ZoneAction::SetMinAir { percentage } => {
-                    zones::control_zone(&client, &zone_name, "set_min_air", Some(&percentage));
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "set_min_air", Some(&percentage));
+                    } else {
+                        eprintln!("Error: 'izone zone set-min-air' requires a zone name.");
+                        exit(1);
+                    }
                 }
                 ZoneAction::SetName { new_name } => {
-                    zones::control_zone(&client, &zone_name, "set_name", Some(&new_name));
+                    if let Some(zone_name) = args.name {
+                        zones::control_zone(&client, &zone_name.to_lowercase(), "set_name", Some(&new_name));
+                    } else {
+                        eprintln!("Error: 'izone zone set-name' requires a zone name.");
+                        exit(1);
+                    }
+                }
+                ZoneAction::Summary => {
+                    // The 'name' argument should be None for 'summary'
+                    if args.name.is_some() {
+                        eprintln!("Error: 'izone zone summary' does not take a zone name argument.");
+                        exit(1);
+                    }
+                    zones::get_all_zones_summary(&client);
                 }
             }
         }
