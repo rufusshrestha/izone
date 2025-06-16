@@ -1,12 +1,12 @@
 // izone/src/models.rs
 
 use serde::{Deserialize, Serialize};
-use crate::helpers::deserialize_int_as_bool; // <--- This import is correct
+use crate::helpers::deserialize_int_as_bool;
 
-#[derive(Debug, Serialize, Deserialize, Clone)] // Added Clone
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct SystemV2 {
-    #[serde(deserialize_with = "deserialize_int_as_bool")] // <--- This line is important
+    #[serde(deserialize_with = "deserialize_int_as_bool")]
     pub sys_on: bool,
     pub sys_mode: u8,
     pub temp: u32,
@@ -16,7 +16,7 @@ pub struct SystemV2 {
     pub ac_error: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)] // Added Clone
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct SystemV2Response {
     #[serde(rename = "SystemV2")]
@@ -44,15 +44,15 @@ pub struct ZonesV2 {
     pub master: u8,
     #[serde(rename = "DmpFlt")]
     pub damper_fault: u8,
-    #[serde(rename = "SnsFlt", default)] // Made optional by adding default
-    pub sensor_fault: u8, // Will default to 0 if missing
-    #[serde(rename = "DmpSkip", default)] // Made optional by adding default
-    pub damper_skip: u8, // Will default to 0 if missing
-    #[serde(default)] // Made optional by adding default
-    pub isense: u8, // Will default to 0 if missing
+    #[serde(rename = "SnsFlt", default)]
+    pub sensor_fault: u8,
+    #[serde(rename = "DmpSkip", default)]
+    pub damper_skip: u8,
+    #[serde(default)]
+    pub isense: u8,
     pub calibration: u8,
-    #[serde(rename = "RFSig", default)] // Made optional by adding default
-    pub rf_signal: u8, // Will default to 0 if missing
+    #[serde(rename = "RFSig", default)]
+    pub rf_signal: u8,
     #[serde(rename = "BattVolt")]
     pub batt_volt: u8,
     pub area: u32,
@@ -75,4 +75,84 @@ pub struct ZonesV2Response {
 pub struct ZoneListV2Response {
     #[serde(rename = "ZoneListV2")]
     pub zone_list_v2: Vec<ZonesV2>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct ScheduleZoneSettings {
+    pub mode: u8, // zone mode ZoneMode_e
+    pub setpoint: u32, // zone setpoint (1500 - 3000)
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct ScheduleCoolbreezeSettings {
+    #[serde(rename = "UnitSetpoint")]
+    pub unit_setpoint: u32,
+    #[serde(rename = "FanSpeed")]
+    pub fan_speed: u8,
+    #[serde(rename = "RhSetpoint")]
+    pub rh_setpoint: u8,
+}
+
+// New struct to represent the nested "DaysEnabled" object
+#[derive(Debug, Serialize, Deserialize, Clone, Default)] // Added Default trait for optional use
+#[serde(rename_all = "PascalCase")]
+pub struct DaysEnabled {
+    #[serde(rename = "M", deserialize_with = "deserialize_int_as_bool", default)]
+    pub monday: bool,
+    #[serde(rename = "Tu", deserialize_with = "deserialize_int_as_bool", default)]
+    pub tuesday: bool,
+    #[serde(rename = "W", deserialize_with = "deserialize_int_as_bool", default)]
+    pub wednesday: bool,
+    #[serde(rename = "Th", deserialize_with = "deserialize_int_as_bool", default)]
+    pub thursday: bool,
+    #[serde(rename = "F", deserialize_with = "deserialize_int_as_bool", default)]
+    pub friday: bool,
+    #[serde(rename = "Sa", deserialize_with = "deserialize_int_as_bool", default)]
+    pub saturday: bool,
+    #[serde(rename = "Su", deserialize_with = "deserialize_int_as_bool", default)]
+    pub sunday: bool,
+}
+
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct SchedulesV2 {
+    #[serde(rename = "AirStreamDeviceUId", default)]
+    pub airstream_device_uid: Option<String>,
+    pub index: u8,
+    pub name: String,
+    #[serde(rename = "Enabled", deserialize_with = "deserialize_int_as_bool", default)]
+    pub active: bool,
+    #[serde(default)]
+    pub mode: Option<u8>,
+    #[serde(default)]
+    pub fan: Option<u8>,
+    #[serde(rename = "StartH", default)]
+    pub start_h: Option<u8>,
+    #[serde(rename = "StartM", default)]
+    pub start_m: Option<u8>,
+    #[serde(rename = "StopH", default)]
+    pub stop_h: Option<u8>,
+    #[serde(rename = "StopM", default)]
+    pub stop_m: Option<u8>,
+    // Removed individual day fields as they are now nested under `days_enabled`
+    #[serde(rename = "DaysEnabled", default)] // Map the nested "DaysEnabled" JSON object
+    pub days_enabled: DaysEnabled,
+    #[serde(rename = "Coolbreeze", default)]
+    pub coolbreeze: Option<ScheduleCoolbreezeSettings>,
+    #[serde(rename = "Zones", default)]
+    pub zones: Option<Vec<ScheduleZoneSettings>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "PascalCase")]
+pub struct SchedulesResponseWrapper {
+    #[serde(rename = "AirStreamDeviceUId", default)]
+    pub airstream_device_uid: Option<String>,
+    #[serde(rename = "DeviceType", default)]
+    pub device_type: Option<String>,
+    #[serde(rename = "SchedulesV2")]
+    pub schedules_v2: SchedulesV2,
 }

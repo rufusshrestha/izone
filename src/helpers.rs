@@ -30,7 +30,7 @@ pub fn get_system_mode_value(mode_name: &str) -> Option<u8> {
         "heat" => Some(2), // Heat is 2
         "vent" => Some(3), // Vent is 3
         "dry" => Some(4),  // Dry is 4
-        _ => None, // No longer supports exhaust or pump_only
+        _ => None,
     }
 }
 
@@ -74,7 +74,6 @@ pub fn get_sensor_fault_text(fault_code: u8) -> String {
         format!("FLT:{}", fault_code).red().to_string()
     }
 }
-
 
 /// Custom deserializer for booleans that are represented as 0 or 1 integers.
 pub fn deserialize_int_as_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
