@@ -8,10 +8,8 @@ use std::process::exit;
 // Corrected imports for API functions and added get_visible_length from helpers
 use crate::api::{make_query_request, make_command_request};
 use crate::constants::{self, ZONES}; // Import the constants module itself, and ZONES
-use crate::helpers::{format_temp, get_battery_level_text, get_zone_type_text, get_visible_length};
-use crate::models::ZonesV2Response;
-
-// Removed: Duplicate get_visible_length helper function as it's now imported from helpers.rs
+use crate::helpers::{format_temp, get_battery_level_text, get_zone_type_text, get_visible_length, get_sensor_fault_text, get_colored_system_mode}; // Added get_colored_system_mode
+use crate::models::ZonesV2Response; // Removed ZoneListV2Response from here, will use full path where needed
 
 pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Option<&str>) {
     let zone_index = match ZONES.get(zone_name) {
@@ -41,245 +39,27 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
         }
     };
 
-    const ZONE_INNER_WIDTH: usize = 50; // Inner content width, excluding '║ ' and ' ║'
-    const BOX_WIDTH: usize = ZONE_INNER_WIDTH + 2; // Total width for the box
+    const BOX_WIDTH: usize = 70; // Increased box width for zone control messages
+    const PADDING_WIDTH: usize = BOX_WIDTH - 2;
 
-    match action {
+    // Initialize command_data directly from the match expression
+    let command_data: Option<Value> = match action {
         "status" | "stat" => {
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Status: {} Room", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
-
-            // Using make_query_request and handling its Result
-            let response_value = match make_query_request(client, query_data) {
-                Ok(val) => val,
-                Err(e) => {
-                    eprintln!("{}", format!("Failed to retrieve zone status: {} Room", e).red());
-                    exit(1);
-                }
-            };
-
-            let zones_v2_response: ZonesV2Response =
-                match serde_json::from_value(response_value.clone()) {
-                    Ok(z) => z,
-                    Err(e) => {
-                        eprintln!("{}Failed to parse zone status: {} Room", "Error: ".red(), e);
-                        exit(1);
-                    }
-                };
-
-            let zone = zones_v2_response.zones_v2;
-
-            let zone_mode_text = match zone.mode {
-                1 => "OPEN (Manual)".yellow().to_string(),
-                2 => "OFF".red().to_string(),
-                3 => "ON".green().to_string(),
-                4 => "OVERRIDE".yellow().to_string(),
-                5 => "CONSTANT".yellow().to_string(),
-                _ => format!("Unknown ({})", zone.mode).normal().to_string(),
-            };
-
-            let damper_fault_text = if zone.damper_fault == 1 {
-                "FAULT".red().to_string()
-            } else {
-                zone.damper_fault.to_string().normal().to_string()
-            };
-            let sensor_fault_text = if zone.sensor_fault == 1 {
-                "FAULT".red().to_string()
-            } else {
-                zone.sensor_fault.to_string().normal().to_string()
-            };
-
-            // Section 1: General Status
-            const GENERAL_LABEL_WIDTH: usize = 17; // "Current Temp:" is 13 chars
-
-            let line_name = format!("{:width$} {}", "Zone Name:", zone.name, width = GENERAL_LABEL_WIDTH);
-            let line_status = format!("{:width$} {}", "Status:", zone_mode_text, width = GENERAL_LABEL_WIDTH);
-            let line_zone_type = format!("{:width$} {}", "Zone Type:", get_zone_type_text(zone.zone_type), width = GENERAL_LABEL_WIDTH);
-            let line_current_temp = format!("{:width$} {}°C", "Current Temp:", format_temp(zone.temp).cyan(), width = GENERAL_LABEL_WIDTH);
-            let line_setpoint = format!("{:width$} {}°C", "Setpoint:", format_temp(zone.setpoint), width = GENERAL_LABEL_WIDTH);
-            let line_damper_pos = format!("{:width$} {}%", "Damper Pos:", zone.damper_pos, width = GENERAL_LABEL_WIDTH);
-            let line_max_air = format!("{:width$} {}%", "Max Airflow:", zone.max_air, width = GENERAL_LABEL_WIDTH);
-            let line_min_air = format!("{:width$} {}%", "Min Airflow:", zone.min_air, width = GENERAL_LABEL_WIDTH);
-
-            println!("║ {:<pw$} ║", line_name, pw = ZONE_INNER_WIDTH - get_visible_length(&line_name) + line_name.len());
-            println!("║ {:<pw$} ║", line_status, pw = ZONE_INNER_WIDTH - get_visible_length(&line_status) + line_status.len());
-            println!("║ {:<pw$} ║", line_zone_type, pw = ZONE_INNER_WIDTH - get_visible_length(&line_zone_type) + line_zone_type.len());
-            println!("║ {:<pw$} ║", line_current_temp, pw = ZONE_INNER_WIDTH - get_visible_length(&line_current_temp) + line_current_temp.len());
-            println!("║ {:<pw$} ║", line_setpoint, pw = ZONE_INNER_WIDTH - get_visible_length(&line_setpoint) + line_setpoint.len());
-            println!("║ {:<pw$} ║", line_damper_pos, pw = ZONE_INNER_WIDTH - get_visible_length(&line_damper_pos) + line_damper_pos.len());
-            println!("║ {:<pw$} ║", line_max_air, pw = ZONE_INNER_WIDTH - get_visible_length(&line_max_air) + line_max_air.len());
-            println!("║ {:<pw$} ║", line_min_air, pw = ZONE_INNER_WIDTH - get_visible_length(&line_min_air) + line_min_air.len());
-
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", "Sensor & Faults");
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-
-            // Section 2: Sensor & Faults
-            const SENSOR_FAULT_LABEL_WIDTH: usize = 17; // "Sensor Fault:" is 13 chars, "RF Signal:" is 10. Max needed is "Sensor Type:". Using 14 for good measure.
-
-            let line_sens_type = format!("{:width$} {}", "Sensor Type:", zone.sens_type, width = SENSOR_FAULT_LABEL_WIDTH);
-            let line_sensor_fault = format!("{:width$} {}", "Sensor Fault:", sensor_fault_text, width = SENSOR_FAULT_LABEL_WIDTH);
-            let line_damper_fault = format!("{:width$} {}", "Damper Fault:", damper_fault_text, width = SENSOR_FAULT_LABEL_WIDTH);
-            let line_isense = format!("{:width$} {}", "iSense Active:", zone.isense, width = SENSOR_FAULT_LABEL_WIDTH);
-            let line_calibration = format!("{:width$} {}", "Calibration:", zone.calibration, width = SENSOR_FAULT_LABEL_WIDTH);
-            let line_rf_signal = format!("{:width$} {}", "RF Signal:", zone.rf_signal, width = SENSOR_FAULT_LABEL_WIDTH);
-            let line_battery = format!("{:width$} {}", "Battery:", get_battery_level_text(zone.batt_volt), width = SENSOR_FAULT_LABEL_WIDTH);
-
-            println!("║ {:<pw$} ║", line_sens_type, pw = ZONE_INNER_WIDTH - get_visible_length(&line_sens_type) + line_sens_type.len());
-            println!("║ {:<pw$} ║", line_sensor_fault, pw = ZONE_INNER_WIDTH - get_visible_length(&line_sensor_fault) + line_sensor_fault.len());
-            println!("║ {:<pw$} ║", line_damper_fault, pw = ZONE_INNER_WIDTH - get_visible_length(&line_damper_fault) + line_damper_fault.len());
-            println!("║ {:<pw$} ║", line_isense, pw = ZONE_INNER_WIDTH - get_visible_length(&line_isense) + line_isense.len());
-            println!("║ {:<pw$} ║", line_calibration, pw = ZONE_INNER_WIDTH - get_visible_length(&line_calibration) + line_calibration.len());
-            println!("║ {:<pw$} ║", line_rf_signal, pw = ZONE_INNER_WIDTH - get_visible_length(&line_rf_signal) + line_rf_signal.len());
-            println!("║ {:<pw$} ║", line_battery, pw = ZONE_INNER_WIDTH - get_visible_length(&line_battery) + line_battery.len());
-
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", "Advanced");
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-
-            // Section 3: Advanced
-            const ADVANCED_LABEL_WIDTH: usize = 17; // "Constant Active:" is 16 chars. Using 17 for padding.
-
-            let line_constant = format!("{:width$} {}", "Constant:", zone.constant, width = ADVANCED_LABEL_WIDTH);
-            let line_constant_a = format!("{:width$} {}", "Constant Active:", zone.constant_a, width = ADVANCED_LABEL_WIDTH);
-            let line_master = format!("{:width$} {}", "Master Zone:", zone.master, width = ADVANCED_LABEL_WIDTH);
-            let line_area = format!("{:width$} {}m²", "Area:", zone.area, width = ADVANCED_LABEL_WIDTH);
-            let line_bypass = format!("{:width$} {}", "Bypass:", zone.bypass, width = ADVANCED_LABEL_WIDTH);
-            let line_balance_max = format!("{:width$} {}", "Balance Max:", zone.balance_max, width = ADVANCED_LABEL_WIDTH);
-            let line_balance_min = format!("{:width$} {}", "Balance Min:", zone.balance_min, width = ADVANCED_LABEL_WIDTH);
-            let line_damper_skip = format!("{:width$} {}", "Damper Skip:", zone.damper_skip, width = ADVANCED_LABEL_WIDTH);
-
-            println!("║ {:<pw$} ║", line_constant, pw = ZONE_INNER_WIDTH - get_visible_length(&line_constant) + line_constant.len());
-            println!("║ {:<pw$} ║", line_constant_a, pw = ZONE_INNER_WIDTH - get_visible_length(&line_constant_a) + line_constant_a.len());
-            println!("║ {:<pw$} ║", line_master, pw = ZONE_INNER_WIDTH - get_visible_length(&line_master) + line_master.len());
-            println!("║ {:<pw$} ║", line_area, pw = ZONE_INNER_WIDTH - get_visible_length(&line_area) + line_area.len());
-            println!("║ {:<pw$} ║", line_bypass, pw = ZONE_INNER_WIDTH - get_visible_length(&line_bypass) + line_bypass.len());
-            println!("║ {:<pw$} ║", line_balance_max, pw = ZONE_INNER_WIDTH - get_visible_length(&line_balance_max) + line_balance_max.len());
-            println!("║ {:<pw$} ║", line_balance_min, pw = ZONE_INNER_WIDTH - get_visible_length(&line_balance_min) + line_balance_min.len());
-            println!("║ {:<pw$} ║", line_damper_skip, pw = ZONE_INNER_WIDTH - get_visible_length(&line_damper_skip) + line_damper_skip.len());
-
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
-
-            unsafe {
-                if constants::VERBOSE {
-                    println!("{}", serde_json::to_string_pretty(&response_value).unwrap());
-                }
-            }
+            get_zone_status(client, zone_name);
+            return; // Exit function after displaying status, no command to send
         }
-        "on" | "auto" => {
-            let command_data = json!({"ZoneMode":{"Index":zone_index,"Mode":3}});
-            // Using make_command_request and handling its Result
-            make_command_request(client, command_data)
-                .expect("Failed to send ON/AUTO command");
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            let message = format!(
-                "Set zone {} to {}.", capitalized_zone_name, "ON (Auto Mode)".green()
-            );
-            println!("║ {:<pw$} ║", message, pw = ZONE_INNER_WIDTH - get_visible_length(&message) + message.len());
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
+        "temp" => {
+            get_zone_temperature(client, zone_name);
+            return; // Exit function after displaying temperature, no command to send
         }
-        "off" => {
-            let command_data = json!({"ZoneMode":{"Index":zone_index,"Mode":2}});
-            // Using make_command_request and handling its Result
-            make_command_request(client, command_data)
-                .expect("Failed to send OFF command");
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            let message = format!(
-                "Set zone {} to {}.", capitalized_zone_name, "OFF (Close Mode)".red()
-            );
-            println!("║ {:<pw$} ║", message, pw = ZONE_INNER_WIDTH - get_visible_length(&message) + message.len());
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
-        }
-        "open" => {
-            let command_data = json!({"ZoneMode":{"Index":zone_index,"Mode":1}});
-            // Using make_command_request and handling its Result
-            make_command_request(client, command_data)
-                .expect("Failed to send OPEN command");
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            let message = format!(
-                "Set zone {} to {}.", capitalized_zone_name, "OPEN (Manual)".yellow()
-            );
-            println!("║ {:<pw$} ║", message, pw = ZONE_INNER_WIDTH - get_visible_length(&message) + message.len());
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
-        }
-        "override" => {
-            let command_data = json!({"ZoneMode":{"Index":zone_index,"Mode":4}});
-            // Using make_command_request and handling its Result
-            make_command_request(client, command_data)
-                .expect("Failed to send OVERRIDE command");
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            let message = format!(
-                "Set zone {} to {}.", capitalized_zone_name, "OVERRIDE".yellow()
-            );
-            println!("║ {:<pw$} ║", message, pw = ZONE_INNER_WIDTH - get_visible_length(&message) + message.len());
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
-        }
-        "constant" => {
-            let command_data = json!({"ZoneMode":{"Index":zone_index,"Mode":5}});
-            // Using make_command_request and handling its Result
-            make_command_request(client, command_data)
-                .expect("Failed to send CONSTANT command");
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            let message = format!(
-                "Set zone {} to {}.", capitalized_zone_name, "CONSTANT".yellow()
-            );
-            println!("║ {:<pw$} ║", message, pw = ZONE_INNER_WIDTH - get_visible_length(&message) + message.len());
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
-        }
-        "temp" | "temperature" => {
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Temperature: {}", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-
-            let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
-
-            // Using make_query_request and handling its Result
-            let response_value = match make_query_request(client, query_data) {
-                Ok(val) => val,
-                Err(e) => {
-                    eprintln!("{}", format!("Failed to retrieve zone temperature: {}", e).red());
-                    exit(1);
-                }
-            };
-
-            let zones_v2_response: ZonesV2Response =
-                match serde_json::from_value(response_value.clone()) {
-                    Ok(z) => z,
-                    Err(e) => {
-                        eprintln!(
-                            "{}Failed to parse zone temperature: {}",
-                            "Error: ".red(),
-                            e
-                        );
-                        exit(1);
-                    }
-                };
-
-            let temp_line = format!(
-                "{} Temperature: {}°C", zones_v2_response.zones_v2.name, format_temp(zones_v2_response.zones_v2.temp).cyan()
-            );
-            println!("║ {:<pw$} ║", temp_line, pw = ZONE_INNER_WIDTH - get_visible_length(&temp_line) + temp_line.len());
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
-            unsafe {
-                if constants::VERBOSE {
-                    println!("{}", serde_json::to_string_pretty(&response_value).unwrap());
-                }
-            }
-        }
+        "on" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":3}})), // Auto mode (ON)
+        "off" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":0}})), // Off mode
+        "open" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":1}})), // Open mode
+        "auto" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":3}})), // Auto mode
+        "override" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":4}})), // Override mode
+        "constant" => Some(json!({"ZoneStatus":{"Index":zone_index,"Mode":2}})), // Constant mode
         "set_setpoint" => {
-            let setpoint_raw = value.expect("Missing setpoint temperature.");
+            let setpoint_raw = value.expect("Setpoint temperature is required for set_setpoint action.");
             let setpoint_float: f32 = setpoint_raw
                 .parse()
                 .expect("Invalid setpoint temperature. Must be a number.");
@@ -293,111 +73,198 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
                 );
                 exit(1);
             }
-
-            let command_data =
-                json!({"ZoneSetpoint":{"Index":zone_index,"Setpoint":setpoint_int}});
-            // Using make_command_request and handling its Result
-            make_command_request(client, command_data)
-                .expect("Failed to set setpoint");
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            let message = format!(
-                "Set {} setpoint to {}°C.", capitalized_zone_name, format_temp(setpoint_int).cyan()
-            );
-            println!("║ {:<pw$} ║", message, pw = ZONE_INNER_WIDTH - get_visible_length(&message) + message.len());
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
+            Some(json!({"ZoneSetpoint":{"Index":zone_index,"Setpoint":setpoint_int}}))
         }
         "set_max_air" => {
-            let max_air_str = value.expect("Missing maximum airflow percentage.");
-            let max_air: u8 = max_air_str
+            let percentage_raw = value.expect("Max air percentage is required.");
+            let percentage: u8 = percentage_raw
                 .parse()
-                .expect("Invalid max airflow percentage. Must be 0-100.");
-
-            if max_air > 100 {
-                eprintln!(
-                    "{}Max airflow percentage '{}' invalid. Must be 0-100.",
-                    "Error: ".red(),
-                    max_air_str
-                );
+                .expect("Invalid percentage. Must be a number between 0 and 100.");
+            if percentage > 100 {
+                eprintln!("{}", "Error: Max air percentage cannot exceed 100.".red());
                 exit(1);
             }
-
-            let command_data = json!({"ZoneMaxAir":{"Index":zone_index,"MaxAir":max_air}});
-            // Using make_command_request and handling its Result
-            make_command_request(client, command_data)
-                .expect("Failed to set max airflow");
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            let message = format!(
-                "Set {} max airflow to {}%.", capitalized_zone_name, max_air
-            );
-            println!("║ {:<pw$} ║", message, pw = ZONE_INNER_WIDTH - get_visible_length(&message) + message.len());
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
+            Some(json!({"ZoneAirflow":{"Index":zone_index,"MaxAir":percentage}}))
         }
         "set_min_air" => {
-            let min_air_str = value.expect("Missing minimum airflow percentage.");
-            let min_air: u8 = min_air_str
+            let percentage_raw = value.expect("Min air percentage is required.");
+            let percentage: u8 = percentage_raw
                 .parse()
-                .expect("Invalid min airflow percentage. Must be 0-100.");
-
-            if min_air > 100 {
-                eprintln!(
-                    "{}Min airflow percentage '{}' invalid. Must be 0-100.",
-                    "Error: ".red(),
-                    min_air_str
-                );
+                .expect("Invalid percentage. Must be a number between 0 and 100.");
+            if percentage > 100 { // Although min, still sensible to cap at 100
+                eprintln!("{}", "Error: Min air percentage cannot exceed 100.".red());
                 exit(1);
             }
-
-            let command_data = json!({"ZoneMinAir":{"Index":zone_index,"MinAir":min_air}});
-            // Using make_command_request and handling its Result
-            make_command_request(client, command_data)
-                .expect("Failed to set min airflow");
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            let message = format!(
-                "Set {} min airflow to {}%.", capitalized_zone_name, min_air
-            );
-            println!("║ {:<pw$} ║", message, pw = ZONE_INNER_WIDTH - get_visible_length(&message) + message.len());
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
+            Some(json!({"ZoneAirflow":{"Index":zone_index,"MinAir":percentage}}))
         }
         "set_name" => {
-            let new_name = value.expect("Missing new zone name.");
+            let new_name = value.expect("New zone name is required.");
             if new_name.len() > 15 {
-                eprintln!(
-                    "{}New zone name '{}' too long. Max 15 characters.",
-                    "Error: ".red(),
-                    new_name
-                );
+                eprintln!("{}", "Error: Zone name cannot exceed 15 characters.".red());
                 exit(1);
             }
-            let command_data = json!({"ZoneName":{"Index":zone_index,"Name":new_name}});
-            // Using make_command_request and handling its Result
-            make_command_request(client, command_data)
-                .expect("Failed to set zone name");
-            println!("╔{}╗", "═".repeat(BOX_WIDTH));
-            println!("║ {:^ZONE_INNER_WIDTH$} ║", format!("Zone Control: {} Room", capitalized_zone_name));
-            println!("╠{}╣", "═".repeat(BOX_WIDTH));
-            let message = format!(
-                "Set {} name to '{}'.", capitalized_zone_name, new_name.green()
-            );
-            println!("║ {:<pw$} ║", message, pw = ZONE_INNER_WIDTH - get_visible_length(&message) + message.len());
-            println!("╚{}╝", "═".repeat(BOX_WIDTH));
+            Some(json!({"ZoneName":{"Index":zone_index,"Name":new_name}}))
         }
         _ => {
             eprintln!(
                 "{}{}{}",
-                "Invalid action for zone '".red(),
+                "Error: Unknown zone action '".red(),
+                action.red(),
+                "'.\nAvailable actions for zones: status, temp, on, off, open, auto, override, constant, set-setpoint, set-max-air, set-min-air, set-name.".red()
+            );
+            exit(1); // Exit if unknown action, no command_data to return
+        }
+    };
+
+    // Only make a command request if command_data is Some
+    if let Some(cmd_data) = command_data {
+        make_command_request(client, cmd_data)
+            .expect(&format!("Failed to execute '{}' for zone '{}'", action, zone_name));
+
+        println!("╔{}╗", "═".repeat(BOX_WIDTH));
+        println!("║ {:^padding_width$} ║", format!("Zone Control: {}", capitalized_zone_name), padding_width = PADDING_WIDTH);
+        println!("╠{}╣", "═".repeat(BOX_WIDTH));
+        let message = format!("Action '{}' for zone '{}' successful.", action.green(), capitalized_zone_name.green());
+        println!("║ {:<padding_width$} ║", message, padding_width = PADDING_WIDTH - get_visible_length(&message) + message.len());
+        println!("╚{}╝", "═".repeat(BOX_WIDTH));
+    }
+}
+
+
+pub fn get_zone_status(client: &Client, zone_name: &str) {
+    let zone_index = match constants::ZONES.get(zone_name) {
+        Some(&index) => index,
+        None => {
+            eprintln!(
+                "{}{}{}{}",
+                "Error: Unknown zone '".red(),
                 zone_name.red(),
-                "'.\nZone Actions: on, off, open, auto, override, constant, status, temp, set_setpoint, set_max_air, set_min_air, set_name.".red()
+                "'.\nAvailable zones: ".red(),
+                constants::ZONES
+                    .keys()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+                    .red()
             );
             exit(1);
         }
+    };
+
+    let query_data = json!({ "iZoneV2Request": { "Type": 3, "No": zone_index, "No1": 0 } });
+
+    const BOX_WIDTH: usize = 60; // Slightly wider box for detailed zone status
+    const PADDING_WIDTH: usize = BOX_WIDTH - 2;
+    const LABEL_WIDTH: usize = 20;
+
+    println!("╔{}╗", "═".repeat(BOX_WIDTH));
+    println!("║ {:^padding_width$} ║", format!("ZONE STATUS: {}", zone_name.to_uppercase()), padding_width = PADDING_WIDTH);
+    println!("╠{}╣", "═".repeat(BOX_WIDTH));
+
+    let response_value = match make_query_request(client, query_data) {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{}", format!("Error querying zone status: {}", e).red());
+            exit(1);
+        }
+    };
+
+    let zone_response: ZonesV2Response = serde_json::from_value(response_value.clone())
+        .expect("Failed to parse zone status response");
+
+    let zone = zone_response.zones_v2;
+
+    let mode_text = get_colored_system_mode(zone.mode); // Re-using system mode for zones
+    let temp_text = format_temp(zone.temp);
+    let setpoint_text = format_temp(zone.setpoint);
+    let damper_pos_text = format!("{}%", zone.damper_pos);
+    let zone_type_text = get_zone_type_text(zone.zone_type);
+    let batt_volt_text = get_battery_level_text(zone.batt_volt);
+    let rf_signal_text = format!("{}%", zone.rf_signal);
+    let sensor_fault_text = get_sensor_fault_text(zone.sensor_fault); // Using new helper
+
+
+    // Function to print a line with left-aligned label and right-aligned value,
+    // accounting for invisible ANSI escape codes.
+    let print_line = |label: &str, value: String| {
+        let visible_value_len = get_visible_length(&value);
+        let ansi_offset = value.len() - visible_value_len;
+        let padding = PADDING_WIDTH - LABEL_WIDTH - visible_value_len; // Calculate spaces between label and value
+        println!("║ {:<LABEL_WIDTH$}{:padding$}{}{} ║", label, "", value, " ".repeat(ansi_offset), padding=padding);
+    };
+
+
+    print_line("Name:", zone.name.normal().to_string());
+    print_line("Mode:", mode_text);
+    print_line("Current Temp:", format!("{}°C", temp_text).cyan().to_string());
+    print_line("Setpoint:", format!("{}°C", setpoint_text).normal().to_string());
+    print_line("Damper Position:", damper_pos_text.normal().to_string());
+    print_line("Zone Type:", zone_type_text.normal().to_string());
+    print_line("Sensor Type:", zone.sens_type.to_string().normal().to_string());
+    print_line("Max Air:", format!("{}%", zone.max_air).normal().to_string());
+    print_line("Min Air:", format!("{}%", zone.min_air).normal().to_string());
+    print_line("Constant:", zone.constant.to_string().normal().to_string());
+    print_line("Constant A:", zone.constant_a.to_string().normal().to_string());
+    print_line("Master:", zone.master.to_string().normal().to_string());
+    print_line("Damper Fault:", zone.damper_fault.to_string().normal().to_string());
+    print_line("Sensor Fault:", sensor_fault_text); // Using the new helper
+    print_line("Damper Skip:", zone.damper_skip.to_string().normal().to_string());
+    print_line("Isense:", zone.isense.to_string().normal().to_string());
+    print_line("Calibration:", zone.calibration.to_string().normal().to_string());
+    print_line("RF Signal:", rf_signal_text.normal().to_string());
+    print_line("Battery Voltage:", batt_volt_text);
+    print_line("Area:", zone.area.to_string().normal().to_string());
+    print_line("Bypass:", zone.bypass.to_string().normal().to_string());
+    print_line("Balance Max:", format!("{}%", zone.balance_max).normal().to_string());
+    print_line("Balance Min:", format!("{}%", zone.balance_min).normal().to_string());
+
+
+    println!("╚{}╝", "═".repeat(BOX_WIDTH));
+
+    unsafe {
+        if constants::VERBOSE {
+            println!("Full ZonesV2Response: {:#?}", response_value);
+        }
     }
 }
+
+pub fn get_zone_temperature(client: &Client, zone_name: &str) {
+    let zone_index = match constants::ZONES.get(zone_name) {
+        Some(&index) => index,
+        None => {
+            eprintln!(
+                "{}{}{}{}",
+                "Error: Unknown zone '".red(),
+                zone_name.red(),
+                "'.\nAvailable zones: ".red(),
+                constants::ZONES
+                    .keys()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+                    .red()
+            );
+            exit(1);
+        }
+    };
+
+    let query_data = json!({ "iZoneV2Request": { "Type": 3, "No": zone_index, "No1": 0 } });
+
+    let response_value = match make_query_request(client, query_data) {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{}", format!("Error querying zone temperature: {}", e).red());
+            exit(1);
+        }
+    };
+
+    let zone_response: ZonesV2Response = serde_json::from_value(response_value)
+        .expect("Failed to parse zone temperature response");
+
+    let temp_text = format_temp(zone_response.zones_v2.temp);
+    println!("Current Temperature for {}: {}°C", zone_name.to_uppercase(), temp_text.cyan());
+}
+
 
 pub fn get_all_zones_summary(client: &Client) {
     // Column widths for the summary table (visible characters)
@@ -416,7 +283,7 @@ pub fn get_all_zones_summary(client: &Client) {
     const SUMMARY_BOX_WIDTH: usize = SUMMARY_INNER_CONTENT_WIDTH + 1;
 
     println!("╔{}╗", "═".repeat(SUMMARY_BOX_WIDTH));
-    println!("║{:^SUMMARY_INNER_CONTENT_WIDTH$} ║", "ZONE SUMMARY");
+    println!("║ {:^SUMMARY_INNER_CONTENT_WIDTH$} ║", "ZONE SUMMARY");
     println!("╠{}╣", "═".repeat(SUMMARY_BOX_WIDTH));
 
     // Fetch all zone data first

@@ -1,7 +1,7 @@
 # izone/Cargo.toml
 [package]
-name = "izone" # Project name updated to 'izone'
-version = "0.1.0"
+name = "izone"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]

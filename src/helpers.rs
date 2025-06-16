@@ -17,9 +17,20 @@ pub fn get_colored_system_mode(sys_mode: u8) -> String {
         3 => "Vent".white().to_string(),
         4 => "Dry".yellow().to_string(),
         5 => "Auto".cyan().to_string(),
-        6 => "Exhaust".normal().to_string(),
-        7 => "Pump Only".normal().to_string(),
         _ => format!("Mode({})", sys_mode).normal().to_string(),
+    }
+}
+
+/// Converts human-readable system mode string to its corresponding u8 value.
+/// Limited to Auto, Cool, Heat, Vent, Dry.
+pub fn get_system_mode_value(mode_name: &str) -> Option<u8> {
+    match mode_name.to_lowercase().as_str() {
+        "auto" => Some(5), // Auto is 5
+        "cool" => Some(1), // Cool is 1
+        "heat" => Some(2), // Heat is 2
+        "vent" => Some(3), // Vent is 3
+        "dry" => Some(4),  // Dry is 4
+        _ => None, // No longer supports exhaust or pump_only
     }
 }
 
@@ -32,7 +43,7 @@ pub fn get_fan_speed_text(sys_fan: u8) -> String {
         4 => "Auto".to_string(),
         5 => "Top".to_string(),
         99 => "NonGasHeat".to_string(),
-        _ => format!("Fan({})", sys_fan).to_string(),
+        _ => format!("Fan({})", sys_fan),
     }
 }
 
@@ -42,7 +53,7 @@ pub fn get_zone_type_text(type_code: u8) -> String {
         1 => "Open/Close".to_string(),
         2 => "Constant".to_string(),
         3 => "Auto".to_string(),
-        _ => format!("Type({})", type_code).to_string(),
+        _ => format!("Type({})", type_code),
     }
 }
 
@@ -54,6 +65,16 @@ pub fn get_battery_level_text(batt_code: u8) -> String {
         batt_code.to_string().normal().to_string()
     }
 }
+
+/// Converts sensor fault code to human-readable colored text.
+pub fn get_sensor_fault_text(fault_code: u8) -> String {
+    if fault_code == 0 {
+        "OK".green().to_string()
+    } else {
+        format!("FLT:{}", fault_code).red().to_string()
+    }
+}
+
 
 /// Custom deserializer for booleans that are represented as 0 or 1 integers.
 pub fn deserialize_int_as_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
@@ -74,10 +95,10 @@ pub fn get_visible_length(s: &str) -> usize {
     let mut in_escape = false;
     for c in s.chars() {
         match c {
-            '\x1B' => in_escape = true, // Start of an ANSI escape sequence
-            'm' if in_escape => in_escape = false, // End of a common ANSI color sequence
-            _ if in_escape => { /* Do nothing, part of escape sequence */ },
-            _ => len += c.len_utf8(), // Count visible character length
+            '\x1b' => in_escape = true, // Start of an ANSI escape sequence
+            'm' if in_escape => in_escape = false, // End of an ANSI escape sequence
+            _ if !in_escape => len += 1, // Count only non-escape characters
+            _ => {},
         }
     }
     len
