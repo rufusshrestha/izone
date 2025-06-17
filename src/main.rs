@@ -49,6 +49,9 @@ enum Commands {
     /// Control the main Aircon system mode (e.g., Cool, Heat, Vent). (mode|m)
     #[clap(name = "mode", alias = "m")]
     Mode(ModeActionWrapper),
+    /// Control the main Aircon system fan speed (e.g., Low, Medium, High, Auto). (fan|f)
+    #[clap(name = "fan", alias = "f")] // Added new command for fan speed
+    Fan(FanActionWrapper), // Added new subcommand variant for fan
     /// Manage favourites / schedules. (fav|schedule|f|s)
     #[clap(name = "fav", aliases = &["schedule", "f", "s"])] // Modified: Add alias "fav"
     Schedule(ScheduleArgs),
@@ -131,6 +134,30 @@ enum ModeArgs {
     Vent,
     /// Set the system mode to Dry.
     Dry,
+}
+
+// Updated: FanActionWrapper for the 'fan' command
+#[derive(Args, Debug)]
+struct FanActionWrapper {
+    #[command(subcommand)]
+    action: FanArgs,
+}
+
+// Updated: FanArgs enum for fan subcommands with aliases
+#[derive(clap::Subcommand, Debug)]
+enum FanArgs {
+    /// Set the system fan speed to Auto. (or 0)
+    #[clap(name = "auto", alias = "0")]
+    Auto,
+    /// Set the system fan speed to Low. (or 1)
+    #[clap(name = "low", alias = "1")]
+    Low,
+    /// Set the system fan speed to Medium. (or med | 2)
+    #[clap(name = "medium", aliases = &["med", "2"])]
+    Medium,
+    /// Set the system fan speed to High. (or 3)
+    #[clap(name = "high", alias = "3")]
+    High,
 }
 
 // New: ScheduleArgs for the 'schedule' command
@@ -224,6 +251,15 @@ fn main() {
                 ModeArgs::Dry => "dry",
             };
             system::set_system_mode(&client, mode_string);
+        }
+        Commands::Fan(fan_wrapper) => { // New: Handle fan command
+            let fan_speed_string = match fan_wrapper.action {
+                FanArgs::Auto => "auto",
+                FanArgs::Low => "low",
+                FanArgs::Medium => "medium",
+                FanArgs::High => "high",
+            };
+            system::set_system_fan(&client, fan_speed_string);
         }
         Commands::Zone(args) => {
             match args.action {

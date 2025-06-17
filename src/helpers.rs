@@ -47,6 +47,18 @@ pub fn get_fan_speed_text(sys_fan: u8) -> String {
     }
 }
 
+/// Converts human-readable fan speed string to its corresponding u8 value.
+/// Limited to Low, Medium, High, Auto.
+pub fn get_fan_speed_value(fan_speed_name: &str) -> Option<u8> {
+    match fan_speed_name.to_lowercase().as_str() {
+        "low" => Some(1),
+        "medium" => Some(2),
+        "high" => Some(3),
+        "auto" => Some(4),
+        _ => None,
+    }
+}
+
 /// Converts ZoneType_e to human-readable text.
 pub fn get_zone_type_text(type_code: u8) -> String {
     match type_code {

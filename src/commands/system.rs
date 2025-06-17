@@ -8,7 +8,7 @@ use std::process::exit;
 // Corrected imports for API functions and get_visible_length from helpers
 use crate::api::{make_query_request, make_command_request};
 use crate::constants;
-use crate::helpers::{format_temp, get_colored_system_mode, get_fan_speed_text, get_visible_length, get_system_mode_value};
+use crate::helpers::{format_temp, get_colored_system_mode, get_fan_speed_text, get_visible_length, get_system_mode_value, get_fan_speed_value};
 use crate::models::SystemV2Response;
 
 // Removed: The `print_status_line` helper function has been removed as requested.
@@ -166,6 +166,35 @@ pub fn set_system_mode(client: &Client, mode_name: &str) {
     println!("╠{}╣", "═".repeat(BOX_WIDTH));
 
     let message = format!("System mode set to {}.", mode_name.cyan());
+    println!("║ {:<padding_width$} ║", message, padding_width = PADDING_WIDTH - get_visible_length(&message) + message.len());
+    println!("╚{}╝", "═".repeat(BOX_WIDTH));
+}
+
+pub fn set_system_fan(client: &Client, fan_speed_name: &str) {
+    const BOX_WIDTH: usize = 45;
+    const PADDING_WIDTH: usize = BOX_WIDTH - 2;
+
+    let fan_speed_value = match get_fan_speed_value(fan_speed_name) {
+        Some(value) => value,
+        None => {
+            let error_message = format!(
+                "Error: Unknown fan speed '{}'.\nAvailable fan speeds: auto, low, medium, high.",
+                fan_speed_name
+            ).red().to_string();
+            eprintln!("{}", error_message);
+            exit(1);
+        }
+    };
+
+    let command_data = json!({"SysFan": fan_speed_value}); // Use SysFan command
+    make_command_request(client, command_data)
+        .expect(&format!("Failed to set system fan to '{}'", fan_speed_name));
+
+    println!("╔{}╗", "═".repeat(BOX_WIDTH));
+    println!("║ {:^padding_width$} ║", "System Control", padding_width = PADDING_WIDTH);
+    println!("╠{}╣", "═".repeat(BOX_WIDTH));
+
+    let message = format!("Aircon Fan Speed set to {}.", fan_speed_name.to_uppercase().cyan());
     println!("║ {:<padding_width$} ║", message, padding_width = PADDING_WIDTH - get_visible_length(&message) + message.len());
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }
