@@ -4,7 +4,7 @@ use reqwest::blocking::Client;
 use serde_json::json;
 use colored::Colorize;
 use std::process::exit;
-
+use stringcase::Caser;
 // Corrected imports for API functions and get_visible_length from helpers
 use crate::api::{make_query_request, make_command_request};
 use crate::constants;
@@ -52,18 +52,18 @@ pub fn get_system_status(client: &Client) {
     // Construct each line with internal padding for label and value
     let sys_on_line = format!("{:width$} {}", "Aircon Power:", status_text, width = LABEL_WIDTH);
     let sys_mode_line = format!("{:width$} {}", "Mode:", get_colored_system_mode(sys_v2.sys_mode), width = LABEL_WIDTH);
-    let sys_temp_line = format!("{:width$} {}°C", "Controller Temperature:", format_temp(sys_v2.temp).cyan(), width = LABEL_WIDTH);
+    let sys_fan_line = format!("{:width$} {}", "Fan Speed:", get_fan_speed_text(sys_v2.sys_fan).cyan(), width = LABEL_WIDTH);
     let sys_setpoint_line = format!("{:width$} {}°C", "Target Setpoint:", format_temp(sys_v2.setpoint), width = LABEL_WIDTH);
-    let sys_fan_line = format!("{:width$} {}", "Fan Speed:", get_fan_speed_text(sys_v2.sys_fan), width = LABEL_WIDTH);
+    let sys_temp_line = format!("{:width$} {}°C", "Controller Temperature:", format_temp(sys_v2.temp).cyan(), width = LABEL_WIDTH);
     let ac_error_line = format!("{:width$} {}", "AC Error:", ac_error_text, width = LABEL_WIDTH - 1); // Adjusted width for AC Error
 
     // Print each line, adjusting the external padding based on the visible length of the formatted line
     println!("║ {:<pw$} ║", sys_on_line, pw = PADDING_WIDTH - get_visible_length(&sys_on_line) + sys_on_line.len());
     println!("║ {:<pw$} ║", sys_mode_line, pw = PADDING_WIDTH - get_visible_length(&sys_mode_line) + sys_mode_line.len());
-    // Adjust pw for these two lines to remove the extra space
-    println!("║ {:<pw$} ║", sys_temp_line, pw = PADDING_WIDTH - get_visible_length(&sys_temp_line) + sys_temp_line.len() - 1);
-    println!("║ {:<pw$} ║", sys_setpoint_line, pw = PADDING_WIDTH - get_visible_length(&sys_setpoint_line) + sys_setpoint_line.len() - 1);
     println!("║ {:<pw$} ║", sys_fan_line, pw = PADDING_WIDTH - get_visible_length(&sys_fan_line) + sys_fan_line.len());
+    // Adjust pw for these two lines to remove the extra space
+    println!("║ {:<pw$} ║", sys_setpoint_line, pw = PADDING_WIDTH - get_visible_length(&sys_setpoint_line) + sys_setpoint_line.len() - 1);
+    println!("║ {:<pw$} ║", sys_temp_line, pw = PADDING_WIDTH - get_visible_length(&sys_temp_line) + sys_temp_line.len() - 1);
     println!("║ {:<pw$} ║", ac_error_line, pw = PADDING_WIDTH - get_visible_length(&ac_error_line) + ac_error_line.len());
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 
@@ -194,7 +194,7 @@ pub fn set_system_fan(client: &Client, fan_speed_name: &str) {
     println!("║ {:^padding_width$} ║", "System Control", padding_width = PADDING_WIDTH);
     println!("╠{}╣", "═".repeat(BOX_WIDTH));
 
-    let message = format!("Aircon Fan Speed set to {}.", fan_speed_name.to_uppercase().cyan());
+    let message = format!("Aircon Fan Speed set to {}.", fan_speed_name.to_pascal_case().cyan());
     println!("║ {:<padding_width$} ║", message, padding_width = PADDING_WIDTH - get_visible_length(&message) + message.len());
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }

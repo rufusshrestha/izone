@@ -112,7 +112,7 @@ enum ZoneAction {
         new_name: String,
     },
     /// Get a summary of all zones. (summary | sum)
-    #[clap(name = "summary", alias = "sum")]
+    #[clap(name = "summary", aliases = &["s", "sum"])]
     Summary,
 }
 
@@ -147,16 +147,16 @@ struct FanActionWrapper {
 #[derive(clap::Subcommand, Debug)]
 enum FanArgs {
     /// Set the system fan speed to Auto. (or 0)
-    #[clap(name = "auto", alias = "0")]
+    #[clap(name = "auto", aliases = &["0", "Auto", "a"])]
     Auto,
     /// Set the system fan speed to Low. (or 1)
-    #[clap(name = "low", alias = "1")]
+    #[clap(name = "low", aliases = &["1", "Low", "l"])]
     Low,
     /// Set the system fan speed to Medium. (or med | 2)
-    #[clap(name = "medium", aliases = &["med", "2"])]
+    #[clap(name = "medium", aliases = &["2", "Med", "med", "m"])]
     Medium,
     /// Set the system fan speed to High. (or 3)
-    #[clap(name = "high", alias = "3")]
+    #[clap(name = "high", aliases = &["3", "Hi", "hi", "High", "h"])]
     High,
 }
 
