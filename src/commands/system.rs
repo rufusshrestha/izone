@@ -165,7 +165,7 @@ pub fn set_system_mode(client: &Client, mode_name: &str) {
     println!("║ {:^padding_width$} ║", "System Control", padding_width = PADDING_WIDTH);
     println!("╠{}╣", "═".repeat(BOX_WIDTH));
 
-    let message = format!("System mode set to {}.", mode_name.cyan());
+    let message = format!("System mode set to {}.", mode_name.to_pascal_case().cyan());
     println!("║ {:<padding_width$} ║", message, padding_width = PADDING_WIDTH - get_visible_length(&message) + message.len());
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }

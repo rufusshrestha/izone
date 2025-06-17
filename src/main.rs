@@ -125,14 +125,19 @@ struct ModeActionWrapper {
 #[derive(clap::Subcommand, Debug)]
 enum ModeArgs {
     /// Set the system mode to Auto.
+    #[clap(name = "auto", aliases = &["0", "Auto", "a"])]
     Auto,
     /// Set the system mode to Cool.
+    #[clap(name = "cool", aliases = &["1", "Cool", "c"])]
     Cool,
     /// Set the system mode to Heat.
+    #[clap(name = "heat", aliases = &["2", "Heat", "h"])]
     Heat,
     /// Set the system mode to Vent.
+    #[clap(name = "auto", aliases = &["3", "Vent", "v"])]
     Vent,
     /// Set the system mode to Dry.
+    #[clap(name = "auto", aliases = &["4", "Dry", "d"])]
     Dry,
 }
 
