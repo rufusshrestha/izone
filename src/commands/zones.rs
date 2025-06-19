@@ -175,7 +175,9 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
             _ => format!("Action '{}' for zone '{}' successful.", action.green(), capitalized_zone_name.green()),
         };
         // Adjusted padding for messages in control_zone to fix off-by-one alignment
-        println!("║ {:<width$} ║", message, width = PADDING_WIDTH-1 - get_visible_length(&message) + message.len());
+        let visible_message_length = get_visible_length(&message);
+        let spaces_needed = PADDING_WIDTH - visible_message_length;
+        println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
         println!("╚{}╝", "═".repeat(BOX_WIDTH));
     }
 }
@@ -339,7 +341,9 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
 
     let message = format!("{} Room Temperature: {}°C", capitalized_zone_name_for_header, temp_text.cyan());
     // Corrected the named argument for padding_width
-    println!("║ {:<width$} ║", message, width = PADDING_WIDTH_TEMP - get_visible_length(&message) + message.len());
+    let visible_message_length = get_visible_length(&message);
+    let spaces_needed = PADDING_WIDTH_TEMP - visible_message_length;
+    println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
     println!("╚{}╝", "═".repeat(BOX_WIDTH_TEMP));
 }
 
