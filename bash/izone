@@ -159,7 +159,7 @@ get_system_status() {
     echo "Controller Temperature:  ${CYAN}$(format_temp "$sys_temp")°C${NC}"
     echo "Target Setpoint:         $(format_temp "$sys_setpoint")°C"
     echo "Fan Speed:               $(get_fan_speed_text "$sys_fan")"
-    echo "AC Error:                ${error_text}"
+    echo "System Check Status:     ${error_text}"
     echo "-------------------"
 
     if $VERBOSE; then

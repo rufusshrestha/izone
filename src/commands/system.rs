@@ -55,7 +55,7 @@ pub fn get_system_status(client: &Client) {
     let sys_fan_line = format!("{:width$} {}", "Fan Speed:", get_fan_speed_text(sys_v2.sys_fan).cyan(), width = LABEL_WIDTH);
     let sys_setpoint_line = format!("{:width$} {}°C", "Target Setpoint:", format_temp(sys_v2.setpoint), width = LABEL_WIDTH);
     let sys_temp_line = format!("{:width$} {}°C", "Controller Temperature:", format_temp(sys_v2.temp).cyan(), width = LABEL_WIDTH);
-    let ac_error_line = format!("{:width$} {}", "AC Error:", ac_error_text, width = LABEL_WIDTH - 1); // Adjusted width for AC Error
+    let ac_error_line = format!("{:width$} {}", "System Check Status:", ac_error_text, width = LABEL_WIDTH - 1); // Adjusted width for System Check Status
 
     // Print each line, adjusting the external padding based on the visible length of the formatted line
     println!("║ {:<pw$} ║", sys_on_line, pw = PADDING_WIDTH - get_visible_length(&sys_on_line) + sys_on_line.len());

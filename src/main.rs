@@ -38,7 +38,7 @@ enum Commands {
     /// Turn off the entire AC system.
     Off,
     /// Get the overall Aircon status (detailed). (status|s)
-    #[clap(name = "status", aliases = &["s", "status"])]
+    #[clap(name = "status", aliases = &["s"])]
     Status,
     /// Get current master controller temperature. (contrommer-temp|ct)
     #[clap(name = "controller-temp", alias = "ct")] // Changed from SystemTemp
@@ -53,7 +53,7 @@ enum Commands {
     #[clap(name = "fan", alias = "f")] // Added new command for fan speed
     Fan(FanActionWrapper), // Added new subcommand variant for fan
     /// Manage favourites / schedules. (fav|schedule|f|s)
-    #[clap(name = "fav", aliases = &["schedule", "f", "s"])] // Modified: Add alias "fav"
+    #[clap(name = "fav", aliases = &["schedule"])]
     Schedule(ScheduleArgs),
 }
 
@@ -125,19 +125,19 @@ struct ModeActionWrapper {
 #[derive(clap::Subcommand, Debug)]
 enum ModeArgs {
     /// Set the system mode to Auto.
-    #[clap(name = "auto", aliases = &["0", "Auto", "a"])]
+    #[clap(name = "auto", aliases = &["0", "a"])]
     Auto,
     /// Set the system mode to Cool.
-    #[clap(name = "cool", aliases = &["1", "Cool", "c"])]
+    #[clap(name = "cool", aliases = &["1", "c"])]
     Cool,
     /// Set the system mode to Heat.
-    #[clap(name = "heat", aliases = &["2", "Heat", "h"])]
+    #[clap(name = "heat", aliases = &["2", "h"])]
     Heat,
     /// Set the system mode to Vent.
-    #[clap(name = "auto", aliases = &["3", "Vent", "v"])]
+    #[clap(name = "vent", aliases = &["3", "v"])]
     Vent,
     /// Set the system mode to Dry.
-    #[clap(name = "auto", aliases = &["4", "Dry", "d"])]
+    #[clap(name = "dry", aliases = &["4", "d"])]
     Dry,
 }
 

@@ -70,13 +70,6 @@ pub struct ZonesV2Response {
     pub zones_v2: ZonesV2,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ZoneListV2Response {
-    #[serde(rename = "ZoneListV2")]
-    pub zone_list_v2: Vec<ZonesV2>,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct ScheduleZoneSettings {
