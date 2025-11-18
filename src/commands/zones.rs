@@ -349,145 +349,327 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
 
 
 pub fn get_all_zones_summary(client: &Client) {
+
+
     // Column widths for the summary table (visible characters)
-    const NAME_COL_WIDTH: usize = 15; // e.g., "Dining_Room_Zone"
-    const MODE_COL_WIDTH: usize = 8;  // e.g., "OVRIDE" or "UNKNOWN" - longest is 7, so 8 is good.
-    const TEMP_COL_WIDTH: usize = 12; // e.g., "Temp: 20.0°C" (12 visible chars)
-    const SETPOINT_COL_WIDTH: usize = 15; // e.g., "Setpoint: 20.0°C" (15 visible chars)
-    const DAMPER_COL_WIDTH: usize = 13; // e.g., "Damper: 100%" (13 visible chars)
-    const STATUS_COL_WIDTH: usize = 25; // Max space for additional status, e.g., "DmpFlt SnsFlt LowBatt"
 
-    // Calculate the total inner content width
-    // Name (15) + ": " (2) + Mode (8) + " " (1) + Temp (12) + " " (1) + Setpoint (15) + " " (1) + Damper (13) + " " (1) + Status (25)
-    const SUMMARY_INNER_CONTENT_WIDTH: usize = NAME_COL_WIDTH + 2 + MODE_COL_WIDTH + 1 + TEMP_COL_WIDTH + 1 + SETPOINT_COL_WIDTH + 1 + DAMPER_COL_WIDTH + 1 + STATUS_COL_WIDTH;
 
-    // Total box width (inner content + 2 for "║ " and " ║")
-    const SUMMARY_BOX_WIDTH: usize = SUMMARY_INNER_CONTENT_WIDTH + 2;
+    const NAME_COL_WIDTH: usize = 15;
 
-    println!("╔{}╗", "═".repeat(SUMMARY_BOX_WIDTH));
-    println!("║ {:^SUMMARY_INNER_CONTENT_WIDTH$} ║", "ZONE SUMMARY");
-    println!("╠{}╣", "═".repeat(SUMMARY_BOX_WIDTH));
+
+    const MODE_COL_WIDTH: usize = 10;
+
+
+    const TEMP_COL_WIDTH: usize = 10;
+
+
+    const SETPOINT_COL_WIDTH: usize = 10;
+
+
+    const DAMPER_COL_WIDTH: usize = 10;
+
+
+    const MAX_AIR_COL_WIDTH: usize = 10;
+
+
+    const STATUS_COL_WIDTH: usize = 25;
+
+
+
+
+
+    // Header definition
+
+
+    let header = format!(
+
+
+        "{:<NAME_COL_WIDTH$} {:<MODE_COL_WIDTH$} {:<TEMP_COL_WIDTH$} {:<SETPOINT_COL_WIDTH$} {:<DAMPER_COL_WIDTH$} {:<MAX_AIR_COL_WIDTH$} {:<STATUS_COL_WIDTH$}",
+
+
+        "ZONE", "MODE", "TEMP", "SETPOINT", "DAMPER", "MAX AIR", "STATUS"
+
+
+    );
+
+
+
+
+
+    let total_width = NAME_COL_WIDTH + 1 + MODE_COL_WIDTH + 1 + TEMP_COL_WIDTH + 1 + SETPOINT_COL_WIDTH + 1 + DAMPER_COL_WIDTH + 1 + MAX_AIR_COL_WIDTH + 1 + STATUS_COL_WIDTH;
+
+
+
+
+
+    println!("╔{}╗", "═".repeat(total_width + 2));
+
+
+    println!("║ {:^width$} ║", "ZONE SUMMARY", width = total_width);
+
+
+    println!("╠{}╣", "═".repeat(total_width + 2));
+
+
+    println!("║ {} ║", header);
+
+
+    println!("╠{}╣", "═".repeat(total_width + 2));
+
+
+
+
 
     // Fetch all zone data first
+
+
     let mut zones_data: Vec<crate::models::ZonesV2> = Vec::new(); // Store ZonesV2 structs
 
+
+
+
+
     for (&zone_index, zone_name) in ZONES.values().zip(ZONES.keys()) {
+
+
         let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
 
-        // Using make_query_request and handling its Result
-        let response_value = match make_query_request(client, query_data) {
-            Ok(val) => val,
-            Err(e) => {
-                let error_line_prefix_raw = format!("{:<NAME_COL_WIDTH$}: {}", zone_name.replace(' ', "_"), "ERROR retrieving status: ");
-                let error_message_part_raw = format!("{}", e);
-                let full_error_line_raw = format!("{}{}", error_line_prefix_raw, error_message_part_raw);
-                let full_error_line_colored = format!("{}{}", error_line_prefix_raw.red(), error_message_part_raw.red());
 
-                println!(
-                    "║ {:<pw$}║",
-                    full_error_line_colored,
-                    pw = SUMMARY_INNER_CONTENT_WIDTH - get_visible_length(&full_error_line_raw) + full_error_line_colored.len()
-                );
+
+
+
+        // Using make_query_request and handling its Result
+
+
+        let response_value = match make_query_request(client, query_data) {
+
+
+            Ok(val) => val,
+
+
+            Err(e) => {
+
+
+                let error_message = format!("{:<NAME_COL_WIDTH$} ERROR: {}", zone_name, e);
+
+
+                println!("║ {:<width$} ║", error_message.red(), width = total_width + get_visible_length(&error_message.red().to_string()) - error_message.len());
+
+
                 continue;
+
+
             }
+
+
         };
 
-        let zones_v2_response: ZonesV2Response =
-            match serde_json::from_value(response_value.clone()) {
-                Ok(z) => z,
-                Err(e) => {
-                    eprintln!("{}Failed to parse zone data: {}", "Error: ".red(), e);
-                    let error_line_prefix_raw = format!("{:<NAME_COL_WIDTH$}: {}", zone_name.replace(' ', "_"), "ERROR parsing data: ");
-                    let error_message_part_raw = format!("{}", e);
-                    let full_error_line_raw = format!("{}{}", error_line_prefix_raw, error_message_part_raw);
-                    let full_error_line_colored = format!("{}{}", error_line_prefix_raw.red(), error_message_part_raw.red());
 
-                    println!(
-                        "║ {:<pw$}║",
-                        full_error_line_colored,
-                        pw = SUMMARY_INNER_CONTENT_WIDTH - get_visible_length(&full_error_line_raw) + full_error_line_colored.len()
-                    );
+
+
+
+        let zones_v2_response: ZonesV2Response =
+
+
+            match serde_json::from_value(response_value.clone()) {
+
+
+                Ok(z) => z,
+
+
+                Err(e) => {
+
+
+                    let error_message = format!("{:<NAME_COL_WIDTH$} ERROR: {}", zone_name, e);
+
+
+                    println!("║ {:<width$} ║", error_message.red(), width = total_width + get_visible_length(&error_message.red().to_string()) - error_message.len());
+
+
                     continue;
+
+
                 }
+
+
             };
+
+
         zones_data.push(zones_v2_response.zones_v2);
+
+
     }
+
+
+
+
 
     // Sort zones alphabetically by name
+
+
     zones_data.sort_by(|a, b| a.name.cmp(&b.name));
 
+
+
+
+
     // Now iterate through the sorted zones to print the summary
-    for zone in &zones_data { // Changed to iterate over a reference
-        let zone_name_display = zone.name.replace(' ', "_"); // Replace spaces with underscores for display
 
-        // Changed to use the new get_colored_zone_mode for zone summary display
-        let zone_mode_colored_text = get_colored_zone_mode(zone.mode);
 
-        let mut additional_status_colored = String::new();
+    for zone in &zones_data {
+
+
+        let zone_name_display = zone.name.replace(' ', "_");
+
+
+        let zone_mode_text = get_colored_zone_mode(zone.mode);
+
+
+        let temp_text = format!("{}°C", format_temp(zone.temp));
+
+
+        let setpoint_text = format!("{}°C", format_temp(zone.setpoint));
+
+
+        let damper_text = format!("{}%", zone.damper_pos);
+
+
+        let max_air_text = format!("{}%", zone.max_air);
+
+
+
+
+
+        let mut status_parts = Vec::new();
+
+
         if zone.damper_fault == 1 {
-            additional_status_colored.push_str(&format!(" {}{}", "DmpFlt".red(), "".normal()));
+
+
+            status_parts.push("DmpFlt".red().to_string());
+
+
         }
+
+
         if zone.sensor_fault == 1 {
-            additional_status_colored.push_str(&format!(" {}{}", "SnsFlt".red(), "".normal()));
+
+
+            status_parts.push("Sensor Fault".red().to_string());
+
+
         }
-        // IMPORTANT: Replace '9' with the actual SensType code(s) for your wireless battery sensors.
-        // If you have multiple wireless sensor types, use: (zone.sens_type == 9 || zone.sens_type == X)
+
+
         if zone.batt_volt == 0 && zone.sens_type == 9 {
-            additional_status_colored.push_str(&format!(" {}{}", "LowBatt".red(), "".normal()));
+
+
+            status_parts.push("LowBatt".red().to_string());
+
+
         }
 
 
-        // 1. Zone Name (left-aligned within its column)
-        let name_part = format!("{:<NAME_COL_WIDTH$}", zone_name_display);
-
-        // 2. Mode (colored, left-aligned within its column, but padding needs visible length)
-        let mode_raw = zone_mode_colored_text; // Already colored
-        let mode_padding = MODE_COL_WIDTH - get_visible_length(&mode_raw) + mode_raw.len();
-        let mode_part = format!("{:>mode_padding$}", mode_raw); // Right-align within its calculated padding
-
-        // 3. Current Temp (colored temp value, left-aligned within its column)
-        let temp_value_colored = format_temp(zone.temp).cyan().to_string();
-        let temp_part_raw = format!("Temp: {}°C", temp_value_colored);
-        let temp_padding = TEMP_COL_WIDTH - get_visible_length(&temp_part_raw) + temp_part_raw.len();
-        let temp_part = format!("{:<temp_padding$}", temp_part_raw);
-
-        // 4. Setpoint (not colored, left-aligned within its column)
-        let setpoint_value = format_temp(zone.setpoint).to_string();
-        let setpoint_part_raw = format!("Setpoint: {}°C", setpoint_value);
-        let setpoint_padding = SETPOINT_COL_WIDTH - get_visible_length(&setpoint_part_raw) + setpoint_part_raw.len();
-        let setpoint_part = format!("{:<setpoint_padding$}", setpoint_part_raw);
-
-        // 5. Damper (not colored, left-aligned within its column)
-        let damper_part_raw = format!("Damper: {}%", zone.damper_pos);
-        let damper_padding = DAMPER_COL_WIDTH - get_visible_length(&damper_part_raw) + damper_part_raw.len();
-        let damper_part = format!("{:<damper_padding$}", damper_part_raw);
-
-        // 6. Additional Status (colored, left-aligned within its column)
-        let status_part_raw = additional_status_colored; // Already colored
-        let status_padding = STATUS_COL_WIDTH - get_visible_length(&status_part_raw) + status_part_raw.len();
-        let status_part = format!("{:<status_padding$}", status_part_raw);
 
 
-        // Assemble the final line content with explicit separators
-        let final_line_content = format!(
-            "{}:{} {} {} {} {}",
-            name_part,
-            mode_part,
-            temp_part,
-            setpoint_part,
-            damper_part,
-            status_part
+
+        let status_text = if status_parts.is_empty() {
+
+
+            "Ok".green().to_string()
+
+
+        } else {
+
+
+            status_parts.join(" ")
+
+
+        };
+
+
+
+
+
+        let line = format!(
+
+
+            "{:<name_col_width$} {:<mode_col_width$} {:<temp_col_width$} {:<setpoint_col_width$} {:<damper_col_width$} {:<max_air_col_width$} {:<status_col_width$}",
+
+
+            zone_name_display,
+
+
+            zone_mode_text,
+
+
+            temp_text,
+
+
+            setpoint_text,
+
+
+            damper_text,
+
+
+            max_air_text,
+
+
+            status_text,
+
+
+            name_col_width = NAME_COL_WIDTH,
+
+
+            mode_col_width = MODE_COL_WIDTH + zone_mode_text.len() - get_visible_length(&zone_mode_text),
+
+
+            temp_col_width = TEMP_COL_WIDTH + temp_text.len() - get_visible_length(&temp_text),
+
+
+            setpoint_col_width = SETPOINT_COL_WIDTH + setpoint_text.len() - get_visible_length(&setpoint_text),
+
+
+            damper_col_width = DAMPER_COL_WIDTH + damper_text.len() - get_visible_length(&damper_text),
+
+
+            max_air_col_width = MAX_AIR_COL_WIDTH + max_air_text.len() - get_visible_length(&max_air_text),
+
+
+            status_col_width = STATUS_COL_WIDTH + status_text.len() - get_visible_length(&status_text),
+
+
         );
 
-        // Print the assembled line, using overall padding logic for the entire line
-        println!("║ {:<pw$}║", final_line_content, pw = SUMMARY_INNER_CONTENT_WIDTH-1 - get_visible_length(&final_line_content) + final_line_content.len());
+
+        println!("║{}║", line);
+
+
     }
-    println!("╚{}╝", "═".repeat(SUMMARY_BOX_WIDTH));
+
+
+    println!("╚{}╝", "═".repeat(total_width + 2));
+
+
     unsafe {
+
+
         if constants::VERBOSE {
+
+
             // Reconstruct all_zones_responses to ensure sorted output if VERBOSE is true
-            let sorted_all_zones_responses: Vec<Value> = zones_data.iter().map(|z| serde_json::to_value(&z).unwrap()).collect(); // Changed to .iter() and &z
+
+
+            let sorted_all_zones_responses: Vec<Value> = zones_data.iter().map(|z| serde_json::to_value(&z).unwrap()).collect();
+
+
             println!("{}", serde_json::to_string_pretty(&sorted_all_zones_responses).unwrap());
+
+
         }
+
+
     }
+
+
 }

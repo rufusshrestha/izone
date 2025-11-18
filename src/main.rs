@@ -112,7 +112,7 @@ enum ZoneAction {
         new_name: String,
     },
     /// Get a summary of all zones. (summary | sum)
-    #[clap(name = "summary", aliases = &["s", "sum"])]
+    #[clap(name = "summary", aliases = &["sum"])]
     Summary,
 }
 
