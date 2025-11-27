@@ -3,6 +3,130 @@
 use serde::{Deserialize, Serialize};
 use crate::helpers::deserialize_int_as_bool;
 
+// Nested structs for SystemV2
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "PascalCase")]
+pub struct UnitOpt {
+    #[serde(rename = "RA", default)]
+    pub ra: u8,
+    #[serde(default)]
+    pub master: u8,
+    #[serde(default)]
+    pub zones: u8,
+    #[serde(default)]
+    pub history: u8,
+    #[serde(rename = "SlaveOpt", default)]
+    pub slave_opt: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "PascalCase")]
+pub struct Temperzone {
+    #[serde(default)]
+    pub heat_setpoint: u32,
+    #[serde(default)]
+    pub cool_setpoint: u32,
+    #[serde(default)]
+    pub fan_type: u8,
+    #[serde(default)]
+    pub mode_type: u8,
+    #[serde(default)]
+    pub quiet: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "PascalCase")]
+pub struct GasHeat {
+    #[serde(rename = "Type", default)]
+    pub gas_type: u8,
+    #[serde(default)]
+    pub min_run_time: u8,
+    #[serde(default)]
+    pub anticycle_time: u8,
+    #[serde(default)]
+    pub stage_offset: u8,
+    #[serde(default)]
+    pub stage_delay: u8,
+    #[serde(default)]
+    pub cycle_fan_cool: u8,
+    #[serde(default)]
+    pub cycle_fan_heat: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "PascalCase")]
+pub struct Ventilation {
+    #[serde(default)]
+    pub rh_setpoint: u8,
+    #[serde(default)]
+    pub vocs_setpoint: u16,
+    #[serde(default)]
+    pub eco2_setpoint: u16,
+    #[serde(default)]
+    pub fan_stage_delay: u8,
+    #[serde(default)]
+    pub cycle_fan_off: u8,
+    #[serde(default)]
+    pub use_rh_control: u8,
+    #[serde(default)]
+    pub use_vcos_control: u8,
+    #[serde(default)]
+    pub use_eco2_control: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "PascalCase")]
+pub struct Coolbreeze {
+    #[serde(default)]
+    pub fan_speed: u8,
+    #[serde(default)]
+    pub state: String,
+    #[serde(default)]
+    pub rh_set: u8,
+    #[serde(default)]
+    pub rh_read: u8,
+    #[serde(default)]
+    pub fan_run_h: u32,
+    #[serde(default)]
+    pub pump_run_h: u32,
+    #[serde(default)]
+    pub prew_en: u8,
+    #[serde(default)]
+    pub prew_time: u8,
+    #[serde(default)]
+    pub dr_af_prew_en: u8,
+    #[serde(default)]
+    pub dr_cyc_en: u8,
+    #[serde(default)]
+    pub dr_cyc_per: u16,
+    #[serde(default)]
+    pub postw_en: u8,
+    #[serde(default)]
+    pub dr_bf_postw_en: u8,
+    #[serde(rename = "PostwT", default)]
+    pub postw_t: u8,
+    #[serde(default)]
+    pub inverter: u8,
+    #[serde(default)]
+    pub resume_last: u8,
+    #[serde(default)]
+    pub fan_max_auto: u8,
+    #[serde(default)]
+    pub fan_max: u8,
+    #[serde(default)]
+    pub exh_max: u8,
+    #[serde(default)]
+    pub exh_en: u8,
+    #[serde(default)]
+    pub ctrl_sens: u8,
+    #[serde(default)]
+    pub calib_temp: i16,
+    #[serde(default)]
+    pub dead_temp: u16,
+    #[serde(default)]
+    pub auto_fan_max_time: u8,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct SystemV2 {
@@ -14,6 +138,128 @@ pub struct SystemV2 {
     pub sys_fan: u8,
     #[serde(rename = "ACError")]
     pub ac_error: String,
+    #[serde(default)]
+    pub sleep_timer: u32,
+    #[serde(default)]
+    pub supply: u32,
+    #[serde(rename = "RAS", default)]
+    pub ras: u8,
+    #[serde(default)]
+    pub ctrl_zone: u8,
+    #[serde(default)]
+    pub tag1: String,
+    #[serde(default)]
+    pub tag2: String,
+    #[serde(default)]
+    pub warnings: String,
+    #[serde(default)]
+    pub eco_lock: u8,
+    #[serde(default)]
+    pub eco_max: u32,
+    #[serde(default)]
+    pub eco_min: u32,
+    #[serde(default)]
+    pub no_of_const: u8,
+    #[serde(default)]
+    pub no_of_zones: u8,
+    #[serde(default)]
+    pub sys_type: u16,
+    #[serde(rename = "iSaveEnable", default)]
+    pub isave_enable: u8,
+    #[serde(rename = "iSaveOn", default)]
+    pub isave_on: u8,
+    #[serde(default)]
+    pub lock_code: String,
+    #[serde(default)]
+    pub lock_status: u8,
+    #[serde(default)]
+    pub lock_on: u8,
+    #[serde(default)]
+    pub fan_auto_en: u8,
+    #[serde(default)]
+    pub fan_auto_type: u8,
+    #[serde(default)]
+    pub fan_capacity: u16,
+    #[serde(default)]
+    pub fan_unit_capacity: u16,
+    #[serde(default)]
+    pub filter_warn: u8,
+    #[serde(rename = "iZoneOnOff", default)]
+    pub izone_on_off: u8,
+    #[serde(rename = "iZoneMode", default)]
+    pub izone_mode: u8,
+    #[serde(rename = "iZoneFan", default)]
+    pub izone_fan: u8,
+    #[serde(rename = "iZoneSetpoint", default)]
+    pub izone_setpoint: u8,
+    #[serde(default)]
+    pub ext_on_off: u8,
+    #[serde(default)]
+    pub ext_mode: u8,
+    #[serde(default)]
+    pub ext_fan: u8,
+    #[serde(default)]
+    pub ext_setpoint: u8,
+    #[serde(default)]
+    pub damper_time: u8,
+    #[serde(default)]
+    pub auto_off: u8,
+    #[serde(default)]
+    pub room_temp_disp: u8,
+    #[serde(default)]
+    pub rf_ch: u8,
+    #[serde(default)]
+    pub auto_mode_dead_b: u16,
+    #[serde(default)]
+    pub wired_leds: u8,
+    #[serde(default)]
+    pub airflow_lock: u8,
+    #[serde(default)]
+    pub airflow_min_lock: u8,
+    #[serde(default)]
+    pub out_of_view_ras: u8,
+    #[serde(default)]
+    pub cpu_type: u8,
+    #[serde(default)]
+    pub sys_no: u8,
+    #[serde(default)]
+    pub ac_unit_brand: u8,
+    #[serde(default)]
+    pub ac_unit_brand_set: u8,
+    #[serde(default)]
+    pub oem_make: u8,
+    #[serde(default)]
+    pub hide_induct: u8,
+    #[serde(default)]
+    pub air_pure_on: u8,
+    #[serde(default)]
+    pub reverse_dampers: u8,
+    #[serde(default)]
+    pub scrooge: u8,
+    #[serde(default)]
+    pub pass: String,
+    #[serde(default)]
+    pub cnst_ctrl_area_en: u8,
+    #[serde(default)]
+    pub cnst_ctrl_area: u16,
+    #[serde(default)]
+    pub static_p: u8,
+    #[serde(default)]
+    pub open_dampers_when_off: u8,
+    #[serde(default)]
+    pub show_act_temps: u8,
+    #[serde(default)]
+    pub use_induct_energy: u8,
+    #[serde(default)]
+    pub unit_opt: UnitOpt,
+    #[serde(default)]
+    pub temperzone: Temperzone,
+    #[serde(default)]
+    pub gas_heat: GasHeat,
+    #[serde(default)]
+    pub ventilation: Ventilation,
+    #[serde(default)]
+    pub coolbreeze: Coolbreeze,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -1,0 +1,12 @@
+# iZone Configuration File
+# Copy this file to one of the following locations:
+#   1. ~/.config/izone/config.toml (recommended - XDG standard)
+#   2. ./izone.toml (current directory)
+#   3. ~/.izone.toml (home directory)
+#
+# The program will search for config files in the order listed above
+# and use the first one found. If no config file is found, it will
+# use the default IP address: http://192.168.1.130
+
+# iZone controller IP address (including http://)
+izone_ip = "http://192.168.1.130"

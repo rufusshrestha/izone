@@ -21,7 +21,7 @@ use crate::commands::schedules; // New: Import schedules module
 
 /// Command-line arguments using Clap
 #[derive(Parser, Debug)]
-#[command(name = "izone", author = "Rufus P. Shrestha <rufus.shrestha@outlook.com.au>", version = env!("CARGO_PKG_VERSION"))]
+#[command(name = "izone", author = "Rufus P. Shrestha", version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "Airstream iZone Controller", long_about = None)]
 struct Cli {
     #[arg(short = 'v', long = "verbose", help = "Show full JSON output for status queries and API responses.")]
@@ -55,6 +55,15 @@ enum Commands {
     /// Manage favourites / schedules. (fav|schedule|f|s)
     #[clap(name = "fav", aliases = &["schedule"])]
     Schedule(ScheduleArgs),
+    /// System configuration commands (config|cfg)
+    #[clap(name = "config", alias = "cfg")]
+    Config(ConfigArgs),
+    /// Coolbreeze evaporative cooling control (coolbreeze|cb)
+    #[clap(name = "coolbreeze", alias = "cb")]
+    Coolbreeze(CoolbreezeArgs),
+    /// Ventilation system control (ventilation|vent)
+    #[clap(name = "ventilation", alias = "vent")]
+    Ventilation(VentilationArgs),
 }
 
 #[derive(Args, Debug)]
@@ -114,6 +123,42 @@ enum ZoneAction {
     /// Get a summary of all zones. (summary | sum)
     #[clap(name = "summary", aliases = &["sum"])]
     Summary,
+    /// Set zone balance max percentage (0-100 in steps of 5).
+    #[clap(name = "set-balance-max")]
+    SetBalanceMax {
+        #[arg(help = "Percentage (0-100, steps of 5)")]
+        percentage: u8,
+    },
+    /// Set zone balance min percentage (0-100 in steps of 5).
+    #[clap(name = "set-balance-min")]
+    SetBalanceMin {
+        #[arg(help = "Percentage (0-100, steps of 5)")]
+        percentage: u8,
+    },
+    /// Enable or disable damper skip for zone.
+    #[clap(name = "set-damper-skip")]
+    SetDamperSkip {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Set zone sensor calibration (-5.0 to +5.0°C).
+    #[clap(name = "set-sensor-calibration", alias = "set-calib")]
+    SetSensorCalibration {
+        #[arg(help = "Calibration in degrees Celsius (-5.0 to +5.0)")]
+        calibration: f32,
+    },
+    /// Enable or disable zone bypass mode.
+    #[clap(name = "set-bypass")]
+    SetBypass {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Set zone area in square meters.
+    #[clap(name = "set-area")]
+    SetArea {
+        #[arg(help = "Area in square meters")]
+        area: u8,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -221,6 +266,285 @@ enum ScheduleAction {
             help = "Zone settings: <zone_name>:<mode_val>:<setpoint> (e.g., kitchen:3:2250)"
         )]
         zone_settings: Vec<String>,
+    },
+}
+
+// Config command arguments
+#[derive(Args, Debug)]
+struct ConfigArgs {
+    #[command(subcommand)]
+    action: ConfigAction,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum ConfigAction {
+    /// Set system setpoint temperature (15.0-30.0°C).
+    #[clap(name = "set-setpoint")]
+    SetSetpoint {
+        #[arg(help = "Temperature in Celsius (15.0-30.0)")]
+        temperature: f32,
+    },
+    /// Set sleep timer in minutes (0 to disable).
+    #[clap(name = "set-sleep-timer")]
+    SetSleepTimer {
+        #[arg(help = "Minutes (0 to disable)")]
+        minutes: u32,
+    },
+    /// Configure economy lock and temperature limits.
+    #[clap(name = "set-economy-lock")]
+    SetEconomyLock {
+        #[arg(help = "true or false")]
+        enable: bool,
+        #[arg(long, help = "Minimum temperature (15.0-30.0°C)")]
+        min: Option<f32>,
+        #[arg(long, help = "Maximum temperature (15.0-30.0°C)")]
+        max: Option<f32>,
+    },
+    /// Set filter warning period in months (0, 3, 6, or 12).
+    #[clap(name = "set-filter-warning")]
+    SetFilterWarning {
+        #[arg(help = "Months (0=disabled, 3, 6, or 12)")]
+        months: u8,
+    },
+    /// Reset a warning (e.g., filter).
+    #[clap(name = "reset-warning")]
+    ResetWarning {
+        #[arg(help = "Warning type (e.g., 'filter')")]
+        warning_type: String,
+    },
+    /// Set damper control time in seconds (0 for automatic).
+    #[clap(name = "set-damper-time")]
+    SetDamperTime {
+        #[arg(help = "Seconds (0 for automatic)")]
+        seconds: u8,
+    },
+    /// Set auto mode deadband temperature (0.75-5.0°C).
+    #[clap(name = "set-auto-deadband")]
+    SetAutoModeDeadband {
+        #[arg(help = "Temperature deadband in Celsius (0.75-5.0)")]
+        deadband: f32,
+    },
+    /// Lock or unlock airflow adjustment (both min and max).
+    #[clap(name = "set-airflow-lock")]
+    SetAirflowLock {
+        #[arg(help = "true to lock, false to unlock")]
+        enable: bool,
+    },
+    /// Lock or unlock minimum airflow adjustment only.
+    #[clap(name = "set-airflow-min-lock")]
+    SetAirflowMinLock {
+        #[arg(help = "true to lock, false to unlock")]
+        enable: bool,
+    },
+    /// Set static pressure level (0-4: lowest to highest).
+    #[clap(name = "set-static-pressure")]
+    SetStaticPressure {
+        #[arg(help = "Level (0-4)")]
+        level: u8,
+    },
+    /// Open or close dampers when AC is off.
+    #[clap(name = "set-open-dampers-when-off")]
+    SetOpenDampersWhenOff {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Enable or disable scrooge mode.
+    #[clap(name = "set-scrooge-mode")]
+    SetScroogeMode {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Enable or disable reverse dampers.
+    #[clap(name = "set-reverse-dampers")]
+    SetReverseDampers {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Configure constant control by area.
+    #[clap(name = "set-constant-control-area")]
+    SetConstantControlArea {
+        #[arg(help = "true or false")]
+        enable: bool,
+        #[arg(long, help = "Area in square meters")]
+        area: Option<u16>,
+    },
+}
+
+// Coolbreeze command arguments
+#[derive(Args, Debug)]
+struct CoolbreezeArgs {
+    #[command(subcommand)]
+    action: CoolbreezeAction,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum CoolbreezeAction {
+    /// Set fan speed (1-100%).
+    #[clap(name = "set-fan-speed")]
+    SetFanSpeed {
+        #[arg(help = "Speed percentage (1-100)")]
+        speed: u8,
+    },
+    /// Set humidity setpoint (10-90%).
+    #[clap(name = "set-rh-setpoint")]
+    SetRhSetpoint {
+        #[arg(help = "Humidity percentage (10-90)")]
+        rh: u8,
+    },
+    /// Configure prewash settings.
+    #[clap(name = "set-prewash")]
+    SetPrewash {
+        #[arg(help = "true or false")]
+        enable: bool,
+        #[arg(long, help = "Time in minutes (1-60)")]
+        time: Option<u8>,
+    },
+    /// Enable or disable drain after prewash.
+    #[clap(name = "set-drain-after-prewash")]
+    SetDrainAfterPrewash {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Configure drain cycle settings.
+    #[clap(name = "set-drain-cycle")]
+    SetDrainCycle {
+        #[arg(help = "true or false")]
+        enable: bool,
+        #[arg(long, help = "Period in hours (1-50)")]
+        period: Option<u16>,
+    },
+    /// Configure postwash settings.
+    #[clap(name = "set-postwash")]
+    SetPostwash {
+        #[arg(help = "true or false")]
+        enable: bool,
+        #[arg(long, help = "Time in minutes (5-30)")]
+        time: Option<u8>,
+    },
+    /// Enable or disable drain before postwash.
+    #[clap(name = "set-drain-before-postwash")]
+    SetDrainBeforePostwash {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Enable or disable inverter mode.
+    #[clap(name = "set-inverter")]
+    SetInverter {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Enable or disable resume last state.
+    #[clap(name = "set-resume-last")]
+    SetResumeLast {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Set maximum fan speed in auto mode (1-100%).
+    #[clap(name = "set-fan-max-auto")]
+    SetFanMaxAuto {
+        #[arg(help = "Speed percentage (1-100)")]
+        speed: u8,
+    },
+    /// Set maximum fan speed in manual mode (1-100%).
+    #[clap(name = "set-fan-max")]
+    SetFanMax {
+        #[arg(help = "Speed percentage (1-100)")]
+        speed: u8,
+    },
+    /// Set maximum exhaust fan speed (1-100%).
+    #[clap(name = "set-exhaust-max")]
+    SetExhaustMax {
+        #[arg(help = "Speed percentage (1-100)")]
+        speed: u8,
+    },
+    /// Enable or disable exhaust mode.
+    #[clap(name = "set-exhaust-enable")]
+    SetExhaustEnable {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Set control sensor (screen or remote).
+    #[clap(name = "set-control-sensor")]
+    SetControlSensor {
+        #[arg(help = "Sensor type: 'screen' or 'remote'")]
+        sensor_type: String,
+    },
+    /// Set temperature calibration (-5.0 to +5.0°C).
+    #[clap(name = "set-temp-calibration")]
+    SetTempCalibration {
+        #[arg(help = "Calibration value (-50 to 50, divide by 10)")]
+        calibration: i16,
+    },
+    /// Set temperature deadband (1.0-5.0°C).
+    #[clap(name = "set-temp-deadband")]
+    SetTempDeadband {
+        #[arg(help = "Deadband value (100-500, divide by 100)")]
+        deadband: u16,
+    },
+    /// Set auto fan max time in minutes (0-60).
+    #[clap(name = "set-auto-fan-max-time")]
+    SetAutoFanMaxTime {
+        #[arg(help = "Time in minutes (0-60)")]
+        time: u8,
+    },
+}
+
+// Ventilation command arguments
+#[derive(Args, Debug)]
+struct VentilationArgs {
+    #[command(subcommand)]
+    action: VentilationAction,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum VentilationAction {
+    /// Set humidity setpoint (5-95%).
+    #[clap(name = "set-rh-setpoint")]
+    SetRhSetpoint {
+        #[arg(help = "Humidity percentage (5-95)")]
+        rh: u8,
+    },
+    /// Set VOCs setpoint (50-2500 ppb).
+    #[clap(name = "set-vocs-setpoint")]
+    SetVocsSetpoint {
+        #[arg(help = "VOCs in ppb (50-2500)")]
+        vocs: u16,
+    },
+    /// Set eCO2 setpoint (500-1500 ppm).
+    #[clap(name = "set-eco2-setpoint")]
+    SetEco2Setpoint {
+        #[arg(help = "eCO2 in ppm (500-1500)")]
+        eco2: u16,
+    },
+    /// Set fan stage delay in minutes (3-240).
+    #[clap(name = "set-fan-stage-delay")]
+    SetFanStageDelay {
+        #[arg(help = "Delay in minutes (3-240)")]
+        delay: u8,
+    },
+    /// Enable or disable cycle fan off.
+    #[clap(name = "set-cycle-fan-off")]
+    SetCycleFanOff {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Enable or disable RH control.
+    #[clap(name = "set-use-rh-control")]
+    SetUseRhControl {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Enable or disable VOCs control.
+    #[clap(name = "set-use-vocs-control")]
+    SetUseVocsControl {
+        #[arg(help = "true or false")]
+        enable: bool,
+    },
+    /// Enable or disable eCO2 control.
+    #[clap(name = "set-use-eco2-control")]
+    SetUseEco2Control {
+        #[arg(help = "true or false")]
+        enable: bool,
     },
 }
 
@@ -371,6 +695,55 @@ fn main() {
                     }
                     zones::get_all_zones_summary(&client);
                 }
+                ZoneAction::SetBalanceMax { percentage } => {
+                    if let Some(zone_name) = args.name {
+                        zones::set_zone_balance_max(&client, &zone_name.to_lowercase(), percentage);
+                    } else {
+                        eprintln!("Error: 'izone zone set-balance-max' requires a zone name.");
+                        exit(1);
+                    }
+                }
+                ZoneAction::SetBalanceMin { percentage } => {
+                    if let Some(zone_name) = args.name {
+                        zones::set_zone_balance_min(&client, &zone_name.to_lowercase(), percentage);
+                    } else {
+                        eprintln!("Error: 'izone zone set-balance-min' requires a zone name.");
+                        exit(1);
+                    }
+                }
+                ZoneAction::SetDamperSkip { enable } => {
+                    if let Some(zone_name) = args.name {
+                        zones::set_zone_damper_skip(&client, &zone_name.to_lowercase(), enable);
+                    } else {
+                        eprintln!("Error: 'izone zone set-damper-skip' requires a zone name.");
+                        exit(1);
+                    }
+                }
+                ZoneAction::SetSensorCalibration { calibration } => {
+                    if let Some(zone_name) = args.name {
+                        let calibration_val = (calibration * 10.0).round() as i8;
+                        zones::set_zone_sensor_calibration(&client, &zone_name.to_lowercase(), calibration_val);
+                    } else {
+                        eprintln!("Error: 'izone zone set-sensor-calibration' requires a zone name.");
+                        exit(1);
+                    }
+                }
+                ZoneAction::SetBypass { enable } => {
+                    if let Some(zone_name) = args.name {
+                        zones::set_zone_bypass(&client, &zone_name.to_lowercase(), enable);
+                    } else {
+                        eprintln!("Error: 'izone zone set-bypass' requires a zone name.");
+                        exit(1);
+                    }
+                }
+                ZoneAction::SetArea { area } => {
+                    if let Some(zone_name) = args.name {
+                        zones::set_zone_area(&client, &zone_name.to_lowercase(), area);
+                    } else {
+                        eprintln!("Error: 'izone zone set-area' requires a zone name.");
+                        exit(1);
+                    }
+                }
             }
         }
         // New: Handle schedule commands
@@ -483,6 +856,138 @@ fn main() {
                         eprintln!("{}", "Error: 'izone schedule set-zones' requires a schedule index (-i <index>).".red());
                         exit(1);
                     }
+                }
+            }
+        }
+        // Config commands
+        Commands::Config(args) => {
+            match args.action {
+                ConfigAction::SetSetpoint { temperature } => {
+                    system::set_system_setpoint(&client, temperature);
+                }
+                ConfigAction::SetSleepTimer { minutes } => {
+                    system::set_sleep_timer(&client, minutes);
+                }
+                ConfigAction::SetEconomyLock { enable, min, max } => {
+                    system::set_economy_lock(&client, enable, min, max);
+                }
+                ConfigAction::SetFilterWarning { months } => {
+                    system::set_filter_warning(&client, months);
+                }
+                ConfigAction::ResetWarning { warning_type } => {
+                    system::reset_warning(&client, &warning_type);
+                }
+                ConfigAction::SetDamperTime { seconds } => {
+                    system::set_damper_time(&client, seconds);
+                }
+                ConfigAction::SetAutoModeDeadband { deadband } => {
+                    system::set_auto_mode_deadband(&client, deadband);
+                }
+                ConfigAction::SetAirflowLock { enable } => {
+                    system::set_airflow_lock(&client, enable);
+                }
+                ConfigAction::SetAirflowMinLock { enable } => {
+                    system::set_airflow_min_lock(&client, enable);
+                }
+                ConfigAction::SetStaticPressure { level } => {
+                    system::set_static_pressure(&client, level);
+                }
+                ConfigAction::SetOpenDampersWhenOff { enable } => {
+                    system::set_open_dampers_when_off(&client, enable);
+                }
+                ConfigAction::SetScroogeMode { enable } => {
+                    system::set_scrooge_mode(&client, enable);
+                }
+                ConfigAction::SetReverseDampers { enable } => {
+                    system::set_reverse_dampers(&client, enable);
+                }
+                ConfigAction::SetConstantControlArea { enable, area } => {
+                    system::set_constant_control_by_area(&client, enable, area);
+                }
+            }
+        }
+        // Coolbreeze commands
+        Commands::Coolbreeze(args) => {
+            match args.action {
+                CoolbreezeAction::SetFanSpeed { speed } => {
+                    system::set_coolbreeze_fan_speed(&client, speed);
+                }
+                CoolbreezeAction::SetRhSetpoint { rh } => {
+                    system::set_coolbreeze_rh_setpoint(&client, rh);
+                }
+                CoolbreezeAction::SetPrewash { enable, time } => {
+                    system::set_coolbreeze_prewash(&client, enable, time);
+                }
+                CoolbreezeAction::SetDrainAfterPrewash { enable } => {
+                    system::set_coolbreeze_drain_after_prewash(&client, enable);
+                }
+                CoolbreezeAction::SetDrainCycle { enable, period } => {
+                    system::set_coolbreeze_drain_cycle(&client, enable, period);
+                }
+                CoolbreezeAction::SetPostwash { enable, time } => {
+                    system::set_coolbreeze_postwash(&client, enable, time);
+                }
+                CoolbreezeAction::SetDrainBeforePostwash { enable } => {
+                    system::set_coolbreeze_drain_before_postwash(&client, enable);
+                }
+                CoolbreezeAction::SetInverter { enable } => {
+                    system::set_coolbreeze_inverter(&client, enable);
+                }
+                CoolbreezeAction::SetResumeLast { enable } => {
+                    system::set_coolbreeze_resume_last(&client, enable);
+                }
+                CoolbreezeAction::SetFanMaxAuto { speed } => {
+                    system::set_coolbreeze_fan_max_auto(&client, speed);
+                }
+                CoolbreezeAction::SetFanMax { speed } => {
+                    system::set_coolbreeze_fan_max(&client, speed);
+                }
+                CoolbreezeAction::SetExhaustMax { speed } => {
+                    system::set_coolbreeze_exhaust_max(&client, speed);
+                }
+                CoolbreezeAction::SetExhaustEnable { enable } => {
+                    system::set_coolbreeze_exhaust_enable(&client, enable);
+                }
+                CoolbreezeAction::SetControlSensor { sensor_type } => {
+                    system::set_coolbreeze_control_sensor(&client, &sensor_type);
+                }
+                CoolbreezeAction::SetTempCalibration { calibration } => {
+                    system::set_coolbreeze_temp_calibration(&client, calibration);
+                }
+                CoolbreezeAction::SetTempDeadband { deadband } => {
+                    system::set_coolbreeze_temp_deadband(&client, deadband);
+                }
+                CoolbreezeAction::SetAutoFanMaxTime { time } => {
+                    system::set_coolbreeze_auto_fan_max_time(&client, time);
+                }
+            }
+        }
+        // Ventilation commands
+        Commands::Ventilation(args) => {
+            match args.action {
+                VentilationAction::SetRhSetpoint { rh } => {
+                    system::set_ventilation_rh_setpoint(&client, rh);
+                }
+                VentilationAction::SetVocsSetpoint { vocs } => {
+                    system::set_ventilation_vocs_setpoint(&client, vocs);
+                }
+                VentilationAction::SetEco2Setpoint { eco2 } => {
+                    system::set_ventilation_eco2_setpoint(&client, eco2);
+                }
+                VentilationAction::SetFanStageDelay { delay } => {
+                    system::set_ventilation_fan_stage_delay(&client, delay);
+                }
+                VentilationAction::SetCycleFanOff { enable } => {
+                    system::set_ventilation_cycle_fan_off(&client, enable);
+                }
+                VentilationAction::SetUseRhControl { enable } => {
+                    system::set_ventilation_use_rh_control(&client, enable);
+                }
+                VentilationAction::SetUseVocsControl { enable } => {
+                    system::set_ventilation_use_vocs_control(&client, enable);
+                }
+                VentilationAction::SetUseEco2Control { enable } => {
+                    system::set_ventilation_use_eco2_control(&client, enable);
                 }
             }
         }

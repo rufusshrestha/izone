@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo check:*)",
+      "Bash(cargo build:*)",
+      "Bash(./target/debug/izone:*)",
+      "Bash(./target/release/izone:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

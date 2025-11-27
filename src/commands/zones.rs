@@ -348,6 +348,189 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
 }
 
 
+// Zone configuration commands
+
+pub fn set_zone_balance_max(client: &Client, zone_name: &str, max: u8) {
+    let zone_index = match ZONES.get(zone_name) {
+        Some(&index) => index,
+        None => {
+            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            exit(1);
+        }
+    };
+
+    if max > 100 || max % 5 != 0 {
+        eprintln!("{}", "Error: BalanceMax must be 0-100 in steps of 5%".red());
+        exit(1);
+    }
+
+    const BOX_WIDTH: usize = 70;
+    const PADDING_WIDTH: usize = BOX_WIDTH - 2;
+
+    let command_data = json!({"BalanceMax": {"Index": zone_index, "Max": max}});
+    make_command_request(client, command_data)
+        .expect(&format!("Failed to set BalanceMax for zone '{}'", zone_name));
+
+    println!("╔{}╗", "═".repeat(BOX_WIDTH));
+    println!("║ {:^padding_width$} ║", "Zone Configuration", padding_width = PADDING_WIDTH);
+    println!("╠{}╣", "═".repeat(BOX_WIDTH));
+    let message = format!("Zone '{}' BalanceMax set to {}%.", zone_name.green(), max.to_string().green());
+    let visible_message_length = get_visible_length(&message);
+    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
+    println!("╚{}╝", "═".repeat(BOX_WIDTH));
+}
+
+pub fn set_zone_balance_min(client: &Client, zone_name: &str, min: u8) {
+    let zone_index = match ZONES.get(zone_name) {
+        Some(&index) => index,
+        None => {
+            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            exit(1);
+        }
+    };
+
+    if min > 100 || min % 5 != 0 {
+        eprintln!("{}", "Error: BalanceMin must be 0-100 in steps of 5%".red());
+        exit(1);
+    }
+
+    const BOX_WIDTH: usize = 70;
+    const PADDING_WIDTH: usize = BOX_WIDTH - 2;
+
+    let command_data = json!({"BalanceMin": {"Index": zone_index, "Min": min}});
+    make_command_request(client, command_data)
+        .expect(&format!("Failed to set BalanceMin for zone '{}'", zone_name));
+
+    println!("╔{}╗", "═".repeat(BOX_WIDTH));
+    println!("║ {:^padding_width$} ║", "Zone Configuration", padding_width = PADDING_WIDTH);
+    println!("╠{}╣", "═".repeat(BOX_WIDTH));
+    let message = format!("Zone '{}' BalanceMin set to {}%.", zone_name.green(), min.to_string().green());
+    let visible_message_length = get_visible_length(&message);
+    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
+    println!("╚{}╝", "═".repeat(BOX_WIDTH));
+}
+
+pub fn set_zone_damper_skip(client: &Client, zone_name: &str, skip: bool) {
+    let zone_index = match ZONES.get(zone_name) {
+        Some(&index) => index,
+        None => {
+            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            exit(1);
+        }
+    };
+
+    const BOX_WIDTH: usize = 70;
+    const PADDING_WIDTH: usize = BOX_WIDTH - 2;
+
+    let skip_val = if skip { 1 } else { 0 };
+    let command_data = json!({"DamperSkip": {"Index": zone_index, "Skip": skip_val}});
+    make_command_request(client, command_data)
+        .expect(&format!("Failed to set DamperSkip for zone '{}'", zone_name));
+
+    println!("╔{}╗", "═".repeat(BOX_WIDTH));
+    println!("║ {:^padding_width$} ║", "Zone Configuration", padding_width = PADDING_WIDTH);
+    println!("╠{}╣", "═".repeat(BOX_WIDTH));
+    let skip_text = if skip { "enabled".red() } else { "disabled".green() };
+    let message = format!("Zone '{}' DamperSkip {}.", zone_name.green(), skip_text);
+    let visible_message_length = get_visible_length(&message);
+    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
+    println!("╚{}╝", "═".repeat(BOX_WIDTH));
+}
+
+pub fn set_zone_sensor_calibration(client: &Client, zone_name: &str, calibrate: i8) {
+    let zone_index = match ZONES.get(zone_name) {
+        Some(&index) => index,
+        None => {
+            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            exit(1);
+        }
+    };
+
+    if calibrate < -50 || calibrate > 50 {
+        eprintln!("{}", "Error: Calibration must be between -5.0°C and +5.0°C (-50 to 50)".red());
+        exit(1);
+    }
+
+    const BOX_WIDTH: usize = 70;
+    const PADDING_WIDTH: usize = BOX_WIDTH - 2;
+
+    let command_data = json!({"SensorCalib": {"Index": zone_index, "Calibrate": calibrate}});
+    make_command_request(client, command_data)
+        .expect(&format!("Failed to set sensor calibration for zone '{}'", zone_name));
+
+    println!("╔{}╗", "═".repeat(BOX_WIDTH));
+    println!("║ {:^padding_width$} ║", "Zone Configuration", padding_width = PADDING_WIDTH);
+    println!("╠{}╣", "═".repeat(BOX_WIDTH));
+    let calibrate_val = (calibrate as f32) / 10.0;
+    let message = format!("Zone '{}' sensor calibration set to {}°C.", zone_name.green(), format!("{:+.1}", calibrate_val).green());
+    let visible_message_length = get_visible_length(&message);
+    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
+    println!("╚{}╝", "═".repeat(BOX_WIDTH));
+}
+
+pub fn set_zone_bypass(client: &Client, zone_name: &str, bypass: bool) {
+    let zone_index = match ZONES.get(zone_name) {
+        Some(&index) => index,
+        None => {
+            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            exit(1);
+        }
+    };
+
+    const BOX_WIDTH: usize = 70;
+    const PADDING_WIDTH: usize = BOX_WIDTH - 2;
+
+    let bypass_val = if bypass { 1 } else { 0 };
+    let command_data = json!({"ZoneBypass": {"Index": zone_index, "Bypass": bypass_val}});
+    make_command_request(client, command_data)
+        .expect(&format!("Failed to set bypass for zone '{}'", zone_name));
+
+    println!("╔{}╗", "═".repeat(BOX_WIDTH));
+    println!("║ {:^padding_width$} ║", "Zone Configuration", padding_width = PADDING_WIDTH);
+    println!("╠{}╣", "═".repeat(BOX_WIDTH));
+    let bypass_text = if bypass { "enabled".yellow() } else { "disabled".green() };
+    let message = format!("Zone '{}' bypass {}.", zone_name.green(), bypass_text);
+    let visible_message_length = get_visible_length(&message);
+    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
+    println!("╚{}╝", "═".repeat(BOX_WIDTH));
+}
+
+pub fn set_zone_area(client: &Client, zone_name: &str, area: u8) {
+    let zone_index = match ZONES.get(zone_name) {
+        Some(&index) => index,
+        None => {
+            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            exit(1);
+        }
+    };
+
+    if area < 1 {
+        eprintln!("{}", "Error: Area must be at least 1 m²".red());
+        exit(1);
+    }
+
+    const BOX_WIDTH: usize = 70;
+    const PADDING_WIDTH: usize = BOX_WIDTH - 2;
+
+    let command_data = json!({"ZoneArea": {"Index": zone_index, "Area": area}});
+    make_command_request(client, command_data)
+        .expect(&format!("Failed to set area for zone '{}'", zone_name));
+
+    println!("╔{}╗", "═".repeat(BOX_WIDTH));
+    println!("║ {:^padding_width$} ║", "Zone Configuration", padding_width = PADDING_WIDTH);
+    println!("╠{}╣", "═".repeat(BOX_WIDTH));
+    let message = format!("Zone '{}' area set to {} m².", zone_name.green(), area.to_string().green());
+    let visible_message_length = get_visible_length(&message);
+    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
+    println!("╚{}╝", "═".repeat(BOX_WIDTH));
+}
+
 pub fn get_all_zones_summary(client: &Client) {
 
 

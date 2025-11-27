@@ -1,13 +1,21 @@
 # izone/Cargo.toml
 [package]
 name = "izone"
-version = "0.4.3"
+version = "1.0.0"
 edition = "2024"
+authors = ["Rufus Shrestha"]
+license = "MIT"
+description = "Command-line interface for controlling Airstream iZone air conditioning systems"
+repository = "https://github.com/yourusername/izone"
+keywords = ["izone", "hvac", "aircon", "cli", "home-automation"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 reqwest = { version = "0.12", features = ["json", "blocking"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+toml = "0.8"
+dirs = "5.0"
 colored = "2"
 clap = { version = "4", features = ["derive"] }
 lazy_static = "1.4"

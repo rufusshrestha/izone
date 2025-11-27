@@ -18,7 +18,7 @@ use std::process::exit; // Re-added exit for immediate termination on API errors
 /// Returns a `Result` to allow caller to handle errors gracefully.
 pub fn make_query_request(client: &Client, payload: Value) -> Result<Value, String> {
     // Construct the full QUERY_URL using IZONE_IP and QUERY_URL_SUFFIX
-    let query_url = format!("{}{}", IZONE_IP, QUERY_URL_SUFFIX);
+    let query_url = format!("{}{}", &**IZONE_IP, QUERY_URL_SUFFIX);
 
     // Create headers
     let mut headers = HeaderMap::new();
@@ -34,7 +34,14 @@ pub fn make_query_request(client: &Client, payload: Value) -> Result<Value, Stri
     match response {
         Ok(res) => {
             let status = res.status();
-            let json_body: Value = res.json().map_err(|e| format!("Failed to parse JSON: {}", e))?;
+            let json_body: Value = res.json().map_err(|e| {
+                format!(
+                    "Unexpected response from iZone controller at {}.\n\
+                    Ensure your configuration has the correct iZone IP and the controller is reachable in your network.\n\
+                    Error details: {}",
+                    &**IZONE_IP, e
+                )
+            })?;
 
             // Access the global VERBOSE flag safely within the unsafe block
             if unsafe { VERBOSE } {
@@ -50,7 +57,12 @@ pub fn make_query_request(client: &Client, payload: Value) -> Result<Value, Stri
                 Err(format!("API query failed with status: {} and body: {}", status, json_body))
             }
         }
-        Err(e) => Err(format!("Failed to send query request: {}", e)),
+        Err(e) => Err(format!(
+            "Failed to connect to iZone controller at {}.\n\
+            Ensure the IP address is correct and the controller is reachable in your network.\n\
+            Error details: {}",
+            &**IZONE_IP, e
+        )),
     }
 }
 
@@ -62,7 +74,7 @@ pub fn make_query_request(client: &Client, payload: Value) -> Result<Value, Stri
 /// Returns `Result<(), String>` as command responses are often non-JSON or empty.
 pub fn make_command_request(client: &Client, payload: Value) -> Result<(), String> { // Changed return type
     // Construct the full COMMAND_URL using IZONE_IP and COMMAND_URL_SUFFIX
-    let command_url = format!("{}{}", IZONE_IP, COMMAND_URL_SUFFIX);
+    let command_url = format!("{}{}", &**IZONE_IP, COMMAND_URL_SUFFIX);
 
     // Create headers
     let mut headers = HeaderMap::new();
@@ -79,7 +91,14 @@ pub fn make_command_request(client: &Client, payload: Value) -> Result<(), Strin
         Ok(res) => {
             let status = res.status();
             // Changed to read response as text, as commands may not return JSON
-            let res_text = res.text().map_err(|e| format!("Failed to read command response text: {}", e))?;
+            let res_text = res.text().map_err(|e| {
+                format!(
+                    "Unexpected response from iZone controller at {}.\n\
+                    Ensure your configuration has the correct iZone IP and the controller is reachable in your network.\n\
+                    Error details: {}",
+                    &**IZONE_IP, e
+                )
+            })?;
 
             // Access the global VERBOSE flag safely within the unsafe block
             if unsafe { VERBOSE } {
@@ -101,6 +120,11 @@ pub fn make_command_request(client: &Client, payload: Value) -> Result<(), Strin
                 Err(format!("API command failed with status: {} and body: {}", status, res_text))
             }
         }
-        Err(e) => Err(format!("Failed to send command request: {}", e)),
+        Err(e) => Err(format!(
+            "Failed to connect to iZone controller at {}.\n\
+            Ensure the IP address is correct and the controller is reachable in your network.\n\
+            Error details: {}",
+            &**IZONE_IP, e
+        )),
     }
 }
