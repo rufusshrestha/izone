@@ -13,7 +13,7 @@ use crate::helpers::{
 use crate::models::{SchedulesV2, SchedulesResponseWrapper}; // Import DaysEnabled
 
 // Define the maximum number of schedules (favourtites) as per iZone API documentation
-const MAX_SCHEDULES: u8 = 8; // Typically 0-7 or 1-8
+const MAX_SCHEDULES: u8 = 9; // Schedules 0-8 (9 total)
 
 pub fn get_schedule_status(client: &Client, schedule_index: u8) {
     if schedule_index >= MAX_SCHEDULES {
