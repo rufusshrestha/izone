@@ -62,12 +62,25 @@ pub fn get_system_status(client: &Client) {
         sys_v2.ac_error.red().to_string()
     };
 
+    let sleep_timer_text = if sys_v2.sleep_timer == 0 {
+        "OFF".red().to_string()
+    } else {
+        let hours = sys_v2.sleep_timer as f32 / 60.0;
+        let hours_str = if hours == hours.floor() {
+            format!("{} hour(s)", hours as u32)
+        } else {
+            format!("{:.1} hour(s)", hours)
+        };
+        hours_str.cyan().to_string()
+    };
+
     // Construct each line with internal padding for label and value
     let sys_on_line = format!("{:width$} {}", "Aircon Power:", status_text, width = LABEL_WIDTH);
     let sys_mode_line = format!("{:width$} {}", "Mode:", get_colored_system_mode(sys_v2.sys_mode), width = LABEL_WIDTH);
     let sys_fan_line = format!("{:width$} {}", "Fan Speed:", get_fan_speed_text(sys_v2.sys_fan).cyan(), width = LABEL_WIDTH);
     let sys_setpoint_line = format!("{:width$} {}°C", "Target Setpoint:", format_temp(sys_v2.setpoint), width = LABEL_WIDTH);
     let sys_temp_line = format!("{:width$} {}°C", "Controller Temperature:", format_temp(sys_v2.temp).cyan(), width = LABEL_WIDTH);
+    let sleep_timer_line = format!("{:width$} {}", "Sleep Timer:", sleep_timer_text, width = LABEL_WIDTH);
     let ac_error_line = format!("{:width$} {}", "System Check Status:", ac_error_text, width = LABEL_WIDTH - 1); // Adjusted width for System Check Status
 
     // Print each line, adjusting the external padding based on the visible length of the formatted line
@@ -77,6 +90,7 @@ pub fn get_system_status(client: &Client) {
     // Adjust pw for these two lines to remove the extra space
     println!("║ {:<pw$} ║", sys_setpoint_line, pw = PADDING_WIDTH - get_visible_length(&sys_setpoint_line) + sys_setpoint_line.len() - 1);
     println!("║ {:<pw$} ║", sys_temp_line, pw = PADDING_WIDTH - get_visible_length(&sys_temp_line) + sys_temp_line.len() - 1);
+    println!("║ {:<pw$} ║", sleep_timer_line, pw = PADDING_WIDTH - get_visible_length(&sleep_timer_line) + sleep_timer_line.len());
     println!("║ {:<pw$} ║", ac_error_line, pw = PADDING_WIDTH - get_visible_length(&ac_error_line) + ac_error_line.len());
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 
@@ -822,6 +836,25 @@ pub fn set_sleep_timer(client: &Client, duration: &str) {
     const BOX_WIDTH: usize = 45;
     const PADDING_WIDTH: usize = BOX_WIDTH - 2;
 
+    // Check if AC is currently off and we're setting a non-zero timer
+    let mut turned_on = false;
+    if minutes > 0 {
+        let query_data = json!({ "iZoneV2Request": { "Type": 1, "No": 0, "No1": 0 } });
+        if let Ok(response_value) = make_query_request(client, query_data) {
+            if let Ok(system_response) = serde_json::from_value::<SystemV2Response>(response_value) {
+                if !system_response.system_v2.sys_on {
+                    // Turn on AC first
+                    let on_command = json!({"SysOn": 1});
+                    if let Err(e) = make_command_request(client, on_command) {
+                        eprintln!("{}", format!("Failed to turn on AC system: {}", e).red());
+                        exit(1);
+                    }
+                    turned_on = true;
+                }
+            }
+        }
+    }
+
     let command_data = json!({"SysSleepTimer": minutes});
     make_command_request(client, command_data)
         .expect("Failed to set sleep timer");
@@ -841,6 +874,10 @@ pub fn set_sleep_timer(client: &Client, duration: &str) {
         format!("Sleep timer set to {} hour(s).", hours_str.green())
     };
     println!("║ {:<padding_width$} ║", message, padding_width = PADDING_WIDTH - get_visible_length(&message) + message.len());
+    if turned_on {
+        let power_message = format!("Aircon has been automatically turned {}.", "ON".green());
+        println!("║ {:<padding_width$} ║", power_message, padding_width = PADDING_WIDTH - get_visible_length(&power_message) + power_message.len());
+    }
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }
 
