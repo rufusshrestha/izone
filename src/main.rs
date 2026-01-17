@@ -284,11 +284,11 @@ enum ConfigAction {
         #[arg(help = "Temperature in Celsius (15.0-30.0)")]
         temperature: f32,
     },
-    /// Set sleep timer in minutes (0 to disable).
+    /// Set sleep timer duration (0=off, 0.5h/30m, 1h/60m, 2h/120m, 4h/240m, 6h/360m, 8h/480m, 12h/720m).
     #[clap(name = "set-sleep-timer")]
     SetSleepTimer {
-        #[arg(help = "Minutes (0 to disable)")]
-        minutes: u32,
+        #[arg(help = "Duration (e.g., 0, 30, 60, 120, 240, 360, 480, 720 or 0.5h, 1h, 2h, 4h, 6h, 8h, 12h)")]
+        duration: String,
     },
     /// Configure economy lock and temperature limits.
     #[clap(name = "set-economy-lock")]
@@ -865,8 +865,8 @@ fn main() {
                 ConfigAction::SetSetpoint { temperature } => {
                     system::set_system_setpoint(&client, temperature);
                 }
-                ConfigAction::SetSleepTimer { minutes } => {
-                    system::set_sleep_timer(&client, minutes);
+                ConfigAction::SetSleepTimer { duration } => {
+                    system::set_sleep_timer(&client, &duration);
                 }
                 ConfigAction::SetEconomyLock { enable, min, max } => {
                     system::set_economy_lock(&client, enable, min, max);

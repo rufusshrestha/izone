@@ -791,7 +791,34 @@ pub fn set_system_setpoint(client: &Client, setpoint: f32) {
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }
 
-pub fn set_sleep_timer(client: &Client, minutes: u32) {
+fn invalid_sleep_timer() -> ! {
+    eprintln!("{}", "Error: Sleep timer must be 0 (off), 0.5h/30m, 1h/60m, 2h/120m, 4h/240m, 6h/360m, 8h/480m, or 12h/720m".red());
+    exit(1);
+}
+
+pub fn set_sleep_timer(client: &Client, duration: &str) {
+    const ALLOWED_MINUTES: [u32; 8] = [0, 30, 60, 120, 240, 360, 480, 720];
+    const ALLOWED_HOURS: [f32; 7] = [0.5, 1.0, 2.0, 4.0, 6.0, 8.0, 12.0];
+
+    let minutes: u32 = if duration == "0" {
+        0
+    } else if let Some(h) = duration.strip_suffix('h') {
+        match h.parse::<f32>() {
+            Ok(hours) if ALLOWED_HOURS.contains(&hours) => (hours * 60.0) as u32,
+            _ => invalid_sleep_timer(),
+        }
+    } else if let Some(m) = duration.strip_suffix('m') {
+        match m.parse::<u32>() {
+            Ok(mins) if ALLOWED_MINUTES.contains(&mins) && mins > 0 => mins,
+            _ => invalid_sleep_timer(),
+        }
+    } else {
+        match duration.parse::<u32>() {
+            Ok(mins) if ALLOWED_MINUTES.contains(&mins) => mins,
+            _ => invalid_sleep_timer(),
+        }
+    };
+
     const BOX_WIDTH: usize = 45;
     const PADDING_WIDTH: usize = BOX_WIDTH - 2;
 
@@ -805,7 +832,13 @@ pub fn set_sleep_timer(client: &Client, minutes: u32) {
     let message = if minutes == 0 {
         "Sleep timer disabled.".to_string()
     } else {
-        format!("Sleep timer set to {} minutes.", minutes.to_string().green())
+        let hours = minutes as f32 / 60.0;
+        let hours_str = if hours == hours.floor() {
+            format!("{}", hours as u32)
+        } else {
+            format!("{:.1}", hours)
+        };
+        format!("Sleep timer set to {} hour(s).", hours_str.green())
     };
     println!("║ {:<padding_width$} ║", message, padding_width = PADDING_WIDTH - get_visible_length(&message) + message.len());
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
