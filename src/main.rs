@@ -12,6 +12,9 @@ mod commands;
 mod constants;
 mod helpers;
 mod models;
+mod web;
+mod web_auth;
+mod web_install;
 
 // Use specific functions from modules
 use crate::commands::system;
@@ -63,6 +66,8 @@ enum Commands {
     /// Ventilation system control (ventilation|vent)
     #[clap(name = "ventilation", alias = "vent")]
     Ventilation(VentilationArgs),
+    /// Run a web UI for controlling the system (default http://localhost:8080; sign-in required).
+    Web(WebArgs),
 }
 
 #[derive(Args, Debug)]
@@ -295,6 +300,38 @@ enum ScheduleAction {
             help = "Zone settings: <zone_name>:<mode_val>:<setpoint> (e.g., kitchen:3:2250)"
         )]
         zone_settings: Vec<String>,
+    },
+}
+
+#[derive(Args, Debug)]
+struct WebArgs {
+    #[arg(long, default_value_t = 8080, help = "Port to listen on")]
+    port: u16,
+    #[arg(long, default_value = "127.0.0.1", help = "Address to listen on (127.0.0.1 = this computer only; 0.0.0.0 = all networks)")]
+    host: String,
+    /// Defaults to running the web server.
+    #[command(subcommand)]
+    action: Option<WebAction>,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum WebAction {
+    /// Prompt for a password and print its salted Argon2id hash (for the built-in default password).
+    #[clap(name = "hash-password")]
+    HashPassword,
+    /// Delete the changed web password so the built-in default applies again (signs everyone out).
+    #[clap(name = "reset-password")]
+    ResetPassword {
+        #[arg(short = 'y', long = "yes", help = "Don't ask for confirmation")]
+        yes: bool,
+    },
+    /// Install and start `izone web` as a systemd user service (Linux; uses --host/--port).
+    #[clap(name = "install-service")]
+    InstallService,
+    /// Remove everything `izone web` stored locally: service, changed password and key, empty folders.
+    Uninstall {
+        #[arg(short = 'y', long = "yes", help = "Don't ask for confirmation")]
+        yes: bool,
     },
 }
 
@@ -578,6 +615,125 @@ enum VentilationAction {
 }
 
 
+/// Throw away anything typed before a prompt appeared (e.g. while a build was running),
+/// so stray keystrokes are never taken as the password.
+fn discard_typeahead() {
+    #[cfg(unix)]
+    {
+        use std::os::unix::io::AsRawFd;
+        if let Ok(tty) = std::fs::File::open("/dev/tty") {
+            // SAFETY: tcflush on a valid, open file descriptor; the result is ignored.
+            unsafe {
+                libc::tcflush(tty.as_raw_fd(), libc::TCIFLUSH);
+            }
+        }
+    }
+}
+
+fn read_hidden(prompt: &str) -> String {
+    discard_typeahead();
+    rpassword::prompt_password(prompt).unwrap_or_else(|e| {
+        eprintln!("{}", format!("Error: could not read password (run this in a terminal): {}", e).red());
+        exit(1);
+    })
+}
+
+/// `izone web hash-password`: read a password without echo (twice) and print its hash.
+fn web_hash_password() {
+    const ATTEMPTS: u32 = 3;
+    for attempt in 1..=ATTEMPTS {
+        let first = read_hidden("New default password: ");
+        let n = first.chars().count();
+        let problem = if n < web_auth::MIN_PASSWORD_LEN || n > web_auth::MAX_PASSWORD_LEN {
+            Some(format!("Password must be {}-{} characters (you typed {}).", web_auth::MIN_PASSWORD_LEN, web_auth::MAX_PASSWORD_LEN, n))
+        } else if read_hidden("Repeat password: ") != first {
+            Some("Passwords don't match.".to_string())
+        } else {
+            None
+        };
+        match problem {
+            None => match web_auth::hash_password(&first) {
+                Ok(hash) => {
+                    println!("\nSalted Argon2id hash (safe to share; the password can't be recovered from it):\n");
+                    println!("{}", hash);
+                    println!("\nPut it in DEFAULT_PASSWORD_HASH in src/web_auth.rs and rebuild.");
+                    return;
+                }
+                Err(e) => {
+                    eprintln!("{}", format!("Error: {}", e).red());
+                    exit(1);
+                }
+            },
+            Some(msg) if attempt < ATTEMPTS => eprintln!("{}", format!("{} Try again.", msg).yellow()),
+            Some(msg) => {
+                eprintln!("{}", format!("Error: {}", msg).red());
+                exit(1);
+            }
+        }
+    }
+}
+
+/// Ask a yes/no question on stderr; refuses (returns false) without a terminal.
+fn confirm(question: &str) -> bool {
+    use std::io::{BufRead, IsTerminal, Write};
+    if !std::io::stdin().is_terminal() {
+        eprintln!("{}", "Error: refusing without confirmation. Re-run in a terminal, or add -y.".red());
+        exit(1);
+    }
+    eprint!("{} [y/N] ", question);
+    let _ = std::io::stderr().flush();
+    let mut answer = String::new();
+    let _ = std::io::stdin().lock().read_line(&mut answer);
+    matches!(answer.trim().to_lowercase().as_str(), "y" | "yes")
+}
+
+/// `izone web uninstall`: remove everything `izone web` stored locally.
+fn web_uninstall(yes: bool) {
+    if !yes && !confirm("Remove the izone web service, your changed web password and its key?") {
+        eprintln!("Cancelled. No changes were made.");
+        return;
+    }
+    match web_install::uninstall() {
+        Ok(removed) => {
+            if removed.is_empty() {
+                println!("Nothing to remove: izone web hasn't stored anything on this computer.");
+            } else {
+                println!("Removed:");
+                for r in &removed {
+                    println!("  {} {}", "✓".green(), r);
+                }
+            }
+            let kept = web_install::kept();
+            if !kept.is_empty() {
+                println!("Left in place:");
+                for k in &kept {
+                    println!("  - {}", k);
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("{}", format!("Error: {}", e).red());
+            exit(1);
+        }
+    }
+}
+
+/// `izone web reset-password`: remove the stored password so the default applies again.
+fn web_reset_password(yes: bool) {
+    if !yes && !confirm("Reset the web password to the built-in default? Everyone will be signed out.") {
+        eprintln!("Cancelled. No changes were made.");
+        return;
+    }
+    match web_auth::reset_password() {
+        Ok(true) => println!("Web password reset to the default. You'll be asked to change it after signing in."),
+        Ok(false) => println!("The web password is already the default. Nothing to reset."),
+        Err(e) => {
+            eprintln!("{}", format!("Error: {}", e).red());
+            exit(1);
+        }
+    }
+}
+
 /// Attach usage examples (from helpers::EXAMPLES) to every command's --help.
 fn with_examples(mut cmd: clap::Command, path: &str) -> clap::Command {
     if let Some(text) = helpers::format_examples(path) {
@@ -650,6 +806,18 @@ fn main() {
     let client = api::build_client();
 
     match cli.command {
+        Commands::Web(args) => match args.action {
+            None => web::run(&args.host, args.port),
+            Some(WebAction::HashPassword) => web_hash_password(),
+            Some(WebAction::ResetPassword { yes }) => web_reset_password(yes),
+            Some(WebAction::InstallService) => {
+                if let Err(e) = web_install::install_service(&args.host, args.port) {
+                    eprintln!("{}", format!("Error: {}", e).red());
+                    exit(1);
+                }
+            }
+            Some(WebAction::Uninstall { yes }) => web_uninstall(yes),
+        },
         Commands::On => {
             system::turn_on_ac(&client);
         }

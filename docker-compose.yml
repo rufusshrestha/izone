@@ -1,0 +1,27 @@
+# iZone web UI as a service.
+#   Start:     IZONE_IP=http://192.168.1.130 docker compose up -d --build
+#   Logs:      docker compose logs -f
+#   Reset pw:  docker compose exec izone-web izone web reset-password -y
+#   Remove:    docker compose down -v --rmi local   (container, data volume and image)
+services:
+  izone-web:
+    build: .
+    image: izone-web:latest
+    container_name: izone-web
+    restart: unless-stopped
+    environment:
+      IZONE_IP: ${IZONE_IP:-http://192.168.1.130}   # your iZone controller
+    ports:
+      - "${IZONE_WEB_PORT:-8080}:8080"   # use "127.0.0.1:8080:8080" to allow this computer only
+    volumes:
+      - izone-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  izone-data:

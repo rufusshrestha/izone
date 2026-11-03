@@ -142,6 +142,11 @@ static NETWORK_ERROR: AtomicBool = AtomicBool::new(false);
 pub const EXAMPLES: &[(&str, &[&str])] = &[
     ("", &["izone status", "izone zone sum", "izone zone kitchen set-setpoint 22.5", "izone fav status", "izone fav -i 0 set-days Mon Tue Wed Thu Fri"]),
     ("on", &["izone on"]),
+    ("web", &["izone web                  # open http://localhost:8080", "izone web --port 9000", "izone web --host 0.0.0.0    # reachable from your network"]),
+    ("web hash-password", &["izone web hash-password    # prints a salted hash for the built-in default password"]),
+    ("web install-service", &["izone web --host 0.0.0.0 install-service   # Linux: systemd user service on port 8080"]),
+    ("web uninstall", &["izone web uninstall        # removes the service, changed password and key (asks to confirm)"]),
+    ("web reset-password", &["izone web reset-password   # back to the default password (asks to confirm)", "izone web reset-password -y"]),
     ("off", &["izone off"]),
     ("status", &["izone status", "izone -v status   # also print raw JSON"]),
     ("controller-temp", &["izone controller-temp", "izone ct"]),

@@ -5,6 +5,30 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.1.0] - 2026-11-03
+
+### Added
+- `izone web`: web UI (default http://localhost:8080) for system power/mode/fan/setpoint/sleep timer,
+  zones (mode, setpoint, airflow, rename), schedules (times, days, AC mode/fan, per-zone settings, clear)
+  and installer settings. Works on phones; light/dark/system theme toggle.
+- Sign-in: built-in default password stored only as a salted Argon2id hash (`izone web hash-password`);
+  forced password change on first sign-in; 5 failed attempts lock an address for 15 minutes
+  (20 across all addresses lock everyone); HttpOnly/SameSite=Strict session cookies.
+- Changed password stored as an Argon2id hash encrypted with AES-256-GCM; key in macOS Keychain,
+  Windows Credential Manager, or a 0600 key file on Linux. No sudo needed.
+- `izone web reset-password`, `izone web install-service` (systemd user service, Linux),
+  `izone web uninstall` (removes the service, stored password, key and empty folders).
+- Dockerfile and docker-compose.yml (non-root, read-only filesystem, data volume); `justfile`
+  (`just up` prompts for anything missing; `just clean` removes everything).
+- `IZONE_IP` environment variable overrides the config file.
+- `izone status` shows warnings and the filter reminder period.
+
+### Changed
+- Warnings that flicker on and off (seen on some controllers while the wall controller shows none)
+  are not reported as warnings: the web UI requires 30 s of consistent reports; `izone status`
+  re-checks and shows "Intermittent" for mixed readings.
+- The "Top" fan speed is offered only for 4-speed or variable-speed fans; `izone fan top` warns otherwise.
+
 ## [1.0.6] - 2026-11-03
 
 ### Fixed

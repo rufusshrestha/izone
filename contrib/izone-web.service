@@ -1,0 +1,26 @@
+# systemd user service for the iZone web UI (no sudo needed).
+# Easiest: `izone web --host 0.0.0.0 install-service` writes and enables this for you.
+# Manual install:
+#   mkdir -p ~/.config/systemd/user && cp contrib/izone-web.service ~/.config/systemd/user/
+#   (edit ExecStart if izone isn't in /usr/local/bin)
+#   systemctl --user daemon-reload && systemctl --user enable --now izone-web
+#   loginctl enable-linger $USER     # keep running while logged out
+# Remove everything: izone web uninstall
+[Unit]
+Description=iZone web UI
+Documentation=https://github.com/rufusshrestha/izone
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/izone web --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=5
+# Optional: set the controller address here instead of ~/.config/izone/config.toml
+#Environment=IZONE_IP=http://192.168.1.130
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

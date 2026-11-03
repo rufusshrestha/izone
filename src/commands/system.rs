@@ -81,6 +81,31 @@ pub fn get_system_status(client: &Client) {
     let sys_temp_line = format!("{:width$} {}°C", "Controller Temperature:", format_temp(sys_v2.temp).cyan(), width = LABEL_WIDTH);
     let sleep_timer_line = format!("{:width$} {}", "Sleep Timer:", sleep_timer_text, width = LABEL_WIDTH);
     let ac_error_line = format!("{:width$} {}", "System Check Status:", ac_error_text, width = LABEL_WIDTH - 1); // Adjusted width for System Check Status
+    // Some controllers flicker `Warnings` (e.g. "filter" <-> "none") while the wall shows nothing.
+    // If a warning is reported, re-check a few times and only call it a warning if it holds.
+    let first = sys_v2.warnings.trim().to_string();
+    let mut consistent = true;
+    if !first.is_empty() && first != "none" {
+        for _ in 0..3 {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            let again = make_query_request(client, json!({ "iZoneV2Request": { "Type": 1, "No": 0, "No1": 0 } }))
+                .ok()
+                .and_then(|v| v.get("SystemV2")?.get("Warnings")?.as_str().map(|s| s.trim().to_string()));
+            if again.as_deref() != Some(first.as_str()) {
+                consistent = false;
+                break;
+            }
+        }
+    }
+    let warnings_text = match first.as_str() {
+        "" | "none" => "None".green().to_string(),
+        _ if !consistent => "Intermittent".normal().to_string(),
+        "filter" => "Clean filter".yellow().to_string(),
+        other => other.yellow().to_string(),
+    };
+    let warnings_line = format!("{:width$} {}", "Warnings:", warnings_text, width = LABEL_WIDTH);
+    let filter_text = if sys_v2.filter_warn == 0 { "Off".to_string() } else { format!("Every {} months", sys_v2.filter_warn) };
+    let filter_line = format!("{:width$} {}", "Filter Reminder:", filter_text, width = LABEL_WIDTH);
 
     // Print each line, adjusting the external padding based on the visible length of the formatted line
     println!("║ {:<pw$} ║", sys_on_line, pw = PADDING_WIDTH + sys_on_line.chars().count() - get_visible_length(&sys_on_line));
@@ -90,6 +115,8 @@ pub fn get_system_status(client: &Client) {
     println!("║ {:<pw$} ║", sys_temp_line, pw = PADDING_WIDTH + sys_temp_line.chars().count() - get_visible_length(&sys_temp_line));
     println!("║ {:<pw$} ║", sleep_timer_line, pw = PADDING_WIDTH + sleep_timer_line.chars().count() - get_visible_length(&sleep_timer_line));
     println!("║ {:<pw$} ║", ac_error_line, pw = PADDING_WIDTH + ac_error_line.chars().count() - get_visible_length(&ac_error_line));
+    println!("║ {:<pw$} ║", warnings_line, pw = PADDING_WIDTH + warnings_line.chars().count() - get_visible_length(&warnings_line));
+    println!("║ {:<pw$} ║", filter_line, pw = PADDING_WIDTH + filter_line.chars().count() - get_visible_length(&filter_line));
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 
     unsafe {
@@ -252,6 +279,16 @@ pub fn set_system_fan(client: &Client, fan_speed_name: &str) {
         }
     };
 
+    // "Top" only exists on 4-speed or variable-speed fans (FanAutoType 3 / 2). Warn, but still send.
+    if fan_speed_value == 5 {
+        let fan_type = make_query_request(client, json!({ "iZoneV2Request": { "Type": 1, "No": 0, "No1": 0 } }))
+            .ok()
+            .and_then(|v| v.get("SystemV2")?.get("FanAutoType")?.as_i64());
+        if let Some(t) = fan_type.filter(|t| *t != 2 && *t != 3) {
+            let kind = match t { 0 => "2-speed", 1 => "3-speed", _ => "this" };
+            eprintln!("{}", format!("Note: your system reports a {} fan, which may not have a Top speed.", kind).yellow());
+        }
+    }
     let command_data = json!({"SysFan": fan_speed_value}); // Use SysFan command
     make_command_request(client, command_data)
         .expect(&format!("Failed to set system fan to '{}'", fan_speed_name));

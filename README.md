@@ -20,6 +20,7 @@ A comprehensive command-line interface for controlling Airstream iZone air condi
   - [System Configuration](#system-configuration)
   - [Coolbreeze Evaporative Cooling](#coolbreeze-evaporative-cooling)
   - [Ventilation Control](#ventilation-control)
+- [Web UI](#web-ui)
 - [Examples](#examples)
 - [Zone Configuration](#zone-configuration)
 - [Troubleshooting](#troubleshooting)
@@ -557,6 +558,90 @@ izone vent set-use-vocs-control false
 izone ventilation set-use-eco2-control true
 izone vent set-use-eco2-control false
 ```
+
+## Web UI
+
+`izone web` runs a web app for everything the CLI does: power, mode, fan, setpoints and
+sleep timer, zones, schedules and installer settings. It works on phones and follows your
+light/dark mode.
+
+```bash
+izone web                      # http://localhost:8080 (this computer only)
+izone web --host 0.0.0.0       # reachable from your network / VPN
+izone web --port 9000
+```
+
+### Signing in
+
+- The built-in default password is compiled in only as a salted Argon2id hash
+  (`DEFAULT_PASSWORD_HASH` in `src/web_auth.rs`). To set it, run `izone web hash-password`,
+  paste the printed hash there and rebuild. The server refuses to start until it's set.
+- After signing in with the default password you must choose a new one (10+ characters)
+  before anything else works.
+- 5 wrong passwords from one address lock that address out for 15 minutes; 20 failures across
+  all addresses within 15 minutes lock sign-in for everyone. Lockouts reset when the server restarts.
+- Sessions use a random token in an `HttpOnly`, `SameSite=Strict` cookie and last 7 days.
+  Changing the password signs out every other device.
+
+The changed password is stored as an Argon2id hash, encrypted with AES-256-GCM:
+
+| OS | Encrypted password | Encryption key |
+|---|---|---|
+| macOS | `~/Library/Application Support/izone/web-password.enc` | macOS Keychain (`izone-web`) |
+| Linux | `~/.config/izone/web-password.enc` | `~/.local/share/izone/web-password.key` (0600) |
+| Windows | `%APPDATA%\izone\web-password.enc` | Windows Credential Manager (`izone-web`) |
+
+```bash
+izone web reset-password       # back to the default password (signs everyone out)
+izone web uninstall            # remove the service, changed password and key, empty folders
+```
+
+`uninstall` leaves your `config.toml` (the controller address, also used by the CLI) and the
+`izone` program itself.
+
+### Remote access
+
+Traffic is plain HTTP. Use a VPN to reach it from outside your network, or put it behind an
+HTTPS reverse proxy (e.g. Caddy or nginx) before port-forwarding. Behind a proxy on the same
+machine, the client address is taken from `X-Forwarded-For` and the session cookie is marked
+`Secure` when `X-Forwarded-Proto: https` is set.
+
+### Run as a service (Linux, systemd, no sudo)
+
+```bash
+izone web --host 0.0.0.0 install-service     # writes ~/.config/systemd/user/izone-web.service and starts it
+loginctl enable-linger $USER                 # keep it running while you're logged out
+journalctl --user -u izone-web -f            # logs
+izone web uninstall                          # stop and remove it (and the stored password)
+```
+
+A manual unit file is in `contrib/izone-web.service`.
+
+### Docker
+
+The easiest way is [`just`](https://github.com/casey/just) (`brew install just`):
+
+```bash
+just up        # asks for anything missing (default password, controller address, port), then starts it
+just logs      # follow the logs
+just clean     # remove everything: container, image, data volume, .env, local web data, target/
+just           # list all tasks
+```
+
+Or with Docker Compose directly:
+
+```bash
+IZONE_IP=http://192.168.1.130 docker compose up -d --build
+docker compose logs -f
+docker compose exec izone-web izone web reset-password -y
+docker compose down -v --rmi local           # remove container, data volume and image
+```
+
+The container runs as a non-root user with a read-only filesystem and no capabilities;
+the changed password and its key are kept in the `izone-data` volume. `IZONE_IP` sets the
+controller address (it also works outside Docker and overrides config files). With Docker's
+port mapping every client appears to come from the same address, so the 5-attempt lockout
+applies to all clients together.
 
 ## Examples
 

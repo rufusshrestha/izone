@@ -81,67 +81,64 @@ pub fn make_query_request(client: &Client, payload: Value) -> Result<Value, Stri
 /// Includes JSON payload and sets Content-Type header.
 /// Prints verbose output if the global VERBOSE flag is true.
 /// Returns `Result<(), String>` as command responses are often non-JSON or empty.
-pub fn make_command_request(client: &Client, payload: Value) -> Result<(), String> { // Changed return type
-    // Construct the full COMMAND_URL using IZONE_IP and COMMAND_URL_SUFFIX
+pub fn make_command_request(client: &Client, payload: Value) -> Result<(), String> {
+    // CLI behaviour: report the error and exit (callers rely on this).
+    match try_command_request(client, payload) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            eprintln!("{}", e.red());
+            exit(1);
+        }
+    }
+}
+
+/// Send a command to the controller and return an error instead of exiting.
+/// Used by the web server, which must keep running when a command is rejected.
+pub fn try_command_request(client: &Client, payload: Value) -> Result<(), String> {
     let command_url = format!("{}{}", &**IZONE_IP, COMMAND_URL_SUFFIX);
 
-    // Create headers
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
-    // Make the request
-    let response = client
+    let res = client
         .post(&command_url)
         .headers(headers)
         .json(&payload)
-        .send();
-
-    match response {
-        Ok(res) => {
-            let status = res.status();
-            // Changed to read response as text, as commands may not return JSON
-            let res_text = res.text().map_err(|e| {
-                format!(
-                    "Unexpected response from iZone controller at {}.\n\
-                    Ensure your configuration has the correct iZone IP and the controller is reachable in your network.\n\
-                    Error details: {}",
-                    &**IZONE_IP, e
-                )
-            })?;
-
-            // Access the global VERBOSE flag safely within the unsafe block
-            if unsafe { VERBOSE } {
-                println!("Request URL: {}", command_url);
-                println!("Request Payload: {}", payload);
-                println!("Response Status: {}", status);
-                println!("Response Body (Text): {}", res_text); // Print as text
-            }
-
-            // Check for common error indicators in the text response
-            if res_text.to_lowercase().contains("error") { // device replies "{ERROR}" on rejected commands
-                eprintln!("{}", format!("Error: the iZone controller rejected the command {} (reply: {})", payload, res_text.trim()).red());
-                exit(1); // Exit directly on API error for commands
-            }
-
-            if status.is_success() {
-                Ok(()) // Return Ok(()) on success
-            } else {
-                // Exit cleanly rather than letting callers' `.expect()` panic.
-                eprintln!("{}", format!("API command failed with status: {} and body: {}", status, res_text).red());
-                exit(1);
-            }
-        }
-        Err(e) => {
-            // Exit cleanly rather than letting callers' `.expect()` panic.
-            eprintln!("{}", format!(
+        .send()
+        .map_err(|e| {
+            format!(
                 "Failed to connect to iZone controller at {}.\n\
                 Ensure the IP address is correct and the controller is reachable in your network.\n\
                 Error details: {}",
                 &**IZONE_IP, e
-            ).red());
-            exit(1);
-        }
+            )
+        })?;
+
+    let status = res.status();
+    // Commands reply with text such as "{OK}" or "{ERROR}", not JSON.
+    let res_text = res.text().map_err(|e| {
+        format!(
+            "Unexpected response from iZone controller at {}.\n\
+            Ensure your configuration has the correct iZone IP and the controller is reachable in your network.\n\
+            Error details: {}",
+            &**IZONE_IP, e
+        )
+    })?;
+
+    if unsafe { VERBOSE } {
+        println!("Request URL: {}", command_url);
+        println!("Request Payload: {}", payload);
+        println!("Response Status: {}", status);
+        println!("Response Body (Text): {}", res_text);
     }
+
+    if res_text.to_lowercase().contains("error") { // device replies "{ERROR}" on rejected commands
+        return Err(format!("Error: the iZone controller rejected the command {} (reply: {})", payload, res_text.trim()));
+    }
+    if !status.is_success() {
+        return Err(format!("API command failed with status: {} and body: {}", status, res_text));
+    }
+    Ok(())
 }
 
 /// HTTP client with timeouts so an unreachable controller fails fast instead of hanging.

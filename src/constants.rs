@@ -18,6 +18,14 @@ pub struct Config {
 
 // Load configuration from file
 pub fn load_config() -> String {
+    // 0. IZONE_IP environment variable (e.g. for Docker); takes priority over config files.
+    if let Ok(raw) = std::env::var("IZONE_IP") {
+        return normalise_ip(&raw).unwrap_or_else(|| {
+            eprintln!("Error: invalid IZONE_IP environment variable: {:?}", raw);
+            eprintln!("Expected e.g.: IZONE_IP=http://192.168.1.130");
+            std::process::exit(1);
+        });
+    }
     // Try config locations in order of priority
     let config_paths = vec![
         // 1. ~/.config/izone/config.toml (XDG standard)

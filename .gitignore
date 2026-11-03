@@ -66,3 +66,7 @@ Thumbs.db
 # OS-specific hidden files
 .Trashes
 ehthumbs.db
+
+# Docker: local settings and any bind-mounted data (encrypted web password + its key)
+.env
+data/
