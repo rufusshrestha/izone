@@ -589,7 +589,7 @@ pub fn get_all_zones_summary(client: &Client) {
     const SETPOINT_COL_WIDTH: usize = 10;
 
 
-    const DAMPER_COL_WIDTH: usize = 10;
+    const MIN_AIR_COL_WIDTH: usize = 10;
 
 
     const MAX_AIR_COL_WIDTH: usize = 10;
@@ -607,10 +607,10 @@ pub fn get_all_zones_summary(client: &Client) {
     let header = format!(
 
 
-        "{:<NAME_COL_WIDTH$} {:<MODE_COL_WIDTH$} {:<TEMP_COL_WIDTH$} {:<SETPOINT_COL_WIDTH$} {:<DAMPER_COL_WIDTH$} {:<MAX_AIR_COL_WIDTH$} {:<STATUS_COL_WIDTH$}",
+        "{:<NAME_COL_WIDTH$} {:<MODE_COL_WIDTH$} {:<TEMP_COL_WIDTH$} {:<SETPOINT_COL_WIDTH$} {:<MIN_AIR_COL_WIDTH$} {:<MAX_AIR_COL_WIDTH$} {:<STATUS_COL_WIDTH$}",
 
 
-        "ZONE", "MODE", "TEMP", "SETPOINT", "DAMPER", "MAX AIR", "STATUS"
+        "ZONE", "MODE", "TEMP", "SETPOINT", "MIN AIR", "MAX AIR", "STATUS"
 
 
     );
@@ -619,7 +619,7 @@ pub fn get_all_zones_summary(client: &Client) {
 
 
 
-    let total_width = NAME_COL_WIDTH + 1 + MODE_COL_WIDTH + 1 + TEMP_COL_WIDTH + 1 + SETPOINT_COL_WIDTH + 1 + DAMPER_COL_WIDTH + 1 + MAX_AIR_COL_WIDTH + 1 + STATUS_COL_WIDTH;
+    let total_width = NAME_COL_WIDTH + 1 + MODE_COL_WIDTH + 1 + TEMP_COL_WIDTH + 1 + SETPOINT_COL_WIDTH + 1 + MIN_AIR_COL_WIDTH + 1 + MAX_AIR_COL_WIDTH + 1 + STATUS_COL_WIDTH;
 
 
 
@@ -754,7 +754,8 @@ pub fn get_all_zones_summary(client: &Client) {
         let setpoint_text = format!("{}°C", format_temp(zone.setpoint));
 
 
-        let damper_text = format!("{}%", zone.damper_pos);
+        // DmpPos isn't a live reading on all systems (often a fixed 50), so show the min-air setting instead.
+        let min_air_text = format!("{}%", zone.min_air);
 
 
         let max_air_text = format!("{}%", zone.max_air);
@@ -817,7 +818,7 @@ pub fn get_all_zones_summary(client: &Client) {
         let line = format!(
 
 
-            "{:<name_col_width$} {:<mode_col_width$} {:<temp_col_width$} {:<setpoint_col_width$} {:<damper_col_width$} {:<max_air_col_width$} {:<status_col_width$}",
+            "{:<name_col_width$} {:<mode_col_width$} {:<temp_col_width$} {:<setpoint_col_width$} {:<min_air_col_width$} {:<max_air_col_width$} {:<status_col_width$}",
 
 
             zone_name_display,
@@ -832,7 +833,7 @@ pub fn get_all_zones_summary(client: &Client) {
             setpoint_text,
 
 
-            damper_text,
+            min_air_text,
 
 
             max_air_text,
@@ -853,7 +854,7 @@ pub fn get_all_zones_summary(client: &Client) {
             setpoint_col_width = SETPOINT_COL_WIDTH + setpoint_text.chars().count() - get_visible_length(&setpoint_text),
 
 
-            damper_col_width = DAMPER_COL_WIDTH + damper_text.chars().count() - get_visible_length(&damper_text),
+            min_air_col_width = MIN_AIR_COL_WIDTH + min_air_text.chars().count() - get_visible_length(&min_air_text),
 
 
             max_air_col_width = MAX_AIR_COL_WIDTH + max_air_text.chars().count() - get_visible_length(&max_air_text),

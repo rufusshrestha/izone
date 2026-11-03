@@ -5,6 +5,13 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.0.4] - 2026-11-03
+
+### Changed
+- `zone sum` shows a MIN AIR column instead of DAMPER. The controller's damper position
+  (`DmpPos`) isn't a live reading on all systems (it reported a fixed 50% for every zone,
+  including closed ones), so the summary now shows the min/max airflow settings side by side.
+
 ## [1.0.3] - 2026-11-03
 
 ### Added
