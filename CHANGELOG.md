@@ -5,6 +5,36 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.0.2] - 2026-11-03
+
+### Fixed
+- `fav set-time` no longer clears the schedule's days, and `fav set-days` no longer clears its times
+- `fav set-days` sends times the controller reports as unset (255:255, 19:63) as 31:63 instead of passing them through
+- `fav set-zones` sends the full 14-zone list (by position) so unlisted zones keep their settings; all entries are validated before anything is sent
+- `zone set-max-air` / `set-min-air` used a non-existent `ZoneAirflow` command (controller replied `{ERROR}`); now `ZoneMaxAir` / `ZoneMinAir`
+- `{ERROR}` replies from the controller were reported as success; they are now errors
+- All 21 commands taking `true`/`false` were unusable (and sent "off" when no value was given)
+- Negative calibration values (`-0.5`, `-10`) were rejected as unknown flags
+- Zone status read `SensorFault`, `DamperSkip`, `iSense`, `RfSignal` under the wrong names (always 0, so sensor faults never showed)
+- Zone calibration is signed; RF signal and battery now show Full/Half/Empty; low-battery warning in `zone sum` now works
+- `fav status` showed per-zone modes using AC mode names (e.g. climate control as "Vent")
+- Unset schedule times (e.g. `19:63`) now show as `N/A`; unset schedule mode/fan show as `N/A`
+- Panics on network errors and invalid input replaced with clear error messages
+- `NaN` no longer bypasses range checks
+- `set-days` with an unknown day no longer clears all days
+- A broken config file no longer silently falls back to the default IP
+- Display alignment of `°C` in status and zone summary boxes
+- README `set-zones` docs described AC modes instead of zone modes
+
+### Added
+- `fav set-time` accepts `N/A` for no start/stop time, and 24-hour `HHMM` (e.g. `2100 2300`)
+- Usage examples shown after every usage/validation error and in `--help`
+- `-i` can be given before or after the `fav` action
+- `fav s` shortcut for `fav status`; `fan top`; `mode 5` / `fan 4` aliases
+- Setpoints validated to 0.5°C steps (zone, schedule, system, economy); balance and economy min/max ordering checked
+- `izone_ip` accepts a bare IP (adds `http://`) and ignores a trailing `/`
+- 5s connect / 15s request timeouts (was 30s hang when unreachable)
+
 ## [1.0.0] - 2024-11-27
 
 ### Added - Complete iZone API Implementation

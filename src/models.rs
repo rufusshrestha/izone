@@ -133,7 +133,7 @@ pub struct SystemV2 {
     #[serde(deserialize_with = "deserialize_int_as_bool")]
     pub sys_on: bool,
     pub sys_mode: u8,
-    pub temp: u32,
+    pub temp: i32,
     pub setpoint: u32,
     pub sys_fan: u8,
     #[serde(rename = "ACError")]
@@ -141,7 +141,7 @@ pub struct SystemV2 {
     #[serde(default)]
     pub sleep_timer: u32,
     #[serde(default)]
-    pub supply: u32,
+    pub supply: i32,
     #[serde(rename = "RAS", default)]
     pub ras: u8,
     #[serde(default)]
@@ -216,7 +216,7 @@ pub struct SystemV2 {
     pub airflow_lock: u8,
     #[serde(default)]
     pub airflow_min_lock: u8,
-    #[serde(default)]
+    #[serde(rename = "OutOfViewRAS", default)]
     pub out_of_view_ras: u8,
     #[serde(default)]
     pub cpu_type: u8,
@@ -275,7 +275,7 @@ pub struct ZonesV2 {
     pub name: String,
     pub mode: u8,
     pub setpoint: u32,
-    pub temp: u32,
+    pub temp: i32,
     #[serde(rename = "DmpPos")]
     pub damper_pos: u8,
     pub zone_type: u8,
@@ -290,15 +290,15 @@ pub struct ZonesV2 {
     pub master: u8,
     #[serde(rename = "DmpFlt")]
     pub damper_fault: u8,
-    #[serde(rename = "SnsFlt", default)]
+    #[serde(rename = "SensorFault", default)]
     pub sensor_fault: u8,
-    #[serde(rename = "DmpSkip", default)]
+    #[serde(rename = "DamperSkip", default)]
     pub damper_skip: u8,
-    #[serde(default)]
+    #[serde(rename = "iSense", default)]
     pub isense: u8,
-    pub calibration: u8,
-    #[serde(rename = "RFSig", default)]
-    pub rf_signal: u8,
+    pub calibration: i8, // x10 degC, may be negative (-50..50)
+    #[serde(rename = "RfSignal", default)]
+    pub rf_signal: u8, // RfSignalLevel_e
     #[serde(rename = "BattVolt")]
     pub batt_volt: u8,
     pub area: u32,

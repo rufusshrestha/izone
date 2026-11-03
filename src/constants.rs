@@ -35,23 +35,41 @@ pub fn load_config() -> String {
         }),
     ];
 
-    // Try each config path
-    for path_option in config_paths {
-        if let Some(path) = path_option {
-            if path.exists() {
-                if let Ok(contents) = fs::read_to_string(&path) {
-                    if let Ok(config) = toml::from_str::<Config>(&contents) {
-                        if let Some(ip) = config.izone_ip {
-                            return ip;
-                        }
-                    }
-                }
-            }
+    // Use the first config file found. If it exists but is broken, fail loudly rather than
+    // silently falling back to the default IP (which could be someone else's device).
+    for path in config_paths.into_iter().flatten() {
+        if !path.exists() {
+            continue;
         }
+        let fail = |msg: String| -> ! {
+            eprintln!("Error: invalid config file {}: {}", path.display(), msg);
+            eprintln!("Expected e.g.: izone_ip = \"http://192.168.1.130\"");
+            std::process::exit(1);
+        };
+        let contents = fs::read_to_string(&path).unwrap_or_else(|e| fail(e.to_string()));
+        let config = toml::from_str::<Config>(&contents).unwrap_or_else(|e| fail(e.to_string()));
+        let ip = config.izone_ip.unwrap_or_else(|| fail("missing 'izone_ip' setting".to_string()));
+        return normalise_ip(&ip).unwrap_or_else(|| fail(format!("'izone_ip' is empty or invalid: {:?}", ip)));
     }
 
-    // Fallback to default
+    // No config file: use default
     DEFAULT_IZONE_IP.to_string()
+}
+
+/// Accept "192.168.1.130", "http://192.168.1.130" or "http://192.168.1.130/":
+/// add http:// if no scheme is given and strip trailing slashes.
+fn normalise_ip(raw: &str) -> Option<String> {
+    let trimmed = raw.trim().trim_end_matches('/');
+    if trimmed.is_empty() || trimmed.contains(char::is_whitespace) {
+        return None;
+    }
+    if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
+        Some(trimmed.to_string())
+    } else if trimmed.contains("://") {
+        None // unsupported scheme
+    } else {
+        Some(format!("http://{}", trimmed))
+    }
 }
 
 // Lazy static to hold the loaded IP address

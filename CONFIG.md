@@ -86,12 +86,15 @@ izone_ip = "https://192.168.1.130"
 izone_ip = "http://izone.local"
 ```
 
+`http://` is added automatically if omitted (`izone_ip = "192.168.1.130"` works),
+and a trailing `/` is ignored.
+
 ### Invalid Examples
 
-```toml
-# ❌ Missing http://
-izone_ip = "192.168.1.130"
+If a config file exists but is invalid, `izone` exits with an error naming the file
+rather than falling back to the default IP.
 
+```toml
 # ❌ Incorrect key name
 controller_ip = "http://192.168.1.130"
 

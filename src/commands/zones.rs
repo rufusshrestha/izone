@@ -3,18 +3,17 @@
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
 use colored::Colorize;
-use std::process::exit;
 use std::thread; // Added for sleep functionality
 use std::time::Duration; // Added for duration specification
 
 // Corrected imports for API functions and added get_visible_length from helpers
 use crate::api::{make_query_request, make_command_request};
 use crate::constants::{self, ZONES}; // Import the constants module itself, and ZONES
-use crate::helpers::{format_temp, get_battery_level_text, get_zone_type_text, get_visible_length, get_sensor_fault_text}; // Added get_colored_system_mode
+use crate::helpers::{format_temp, get_battery_level_text, get_zone_type_text, get_visible_length, get_sensor_fault_text, get_rf_signal_text}; // Added get_colored_system_mode
 use crate::models::ZonesV2Response; // Removed ZoneListV2Response from here, will use full path where needed
 
 // New helper function to get colored zone mode text
-fn get_colored_zone_mode(mode: u8) -> String {
+pub fn get_colored_zone_mode(mode: u8) -> String {
     match mode {
         1 => "OPEN".yellow().to_string(),
         2 => "OFF".red().to_string(),
@@ -41,7 +40,7 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
                     .join(", ")
                     .red()
             );
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
@@ -73,48 +72,63 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
         "constant" => Some(json!({"ZoneMode":{"Index":zone_index,"Mode":5}})), // Constant mode
         "set_setpoint" => {
             let setpoint_raw = value.expect("Setpoint temperature is required for set_setpoint action.");
-            let setpoint_float: f32 = setpoint_raw
-                .parse()
-                .expect("Invalid setpoint temperature. Must be a number.");
+            let setpoint_float: f32 = setpoint_raw.parse().unwrap_or_else(|_| {
+                eprintln!("{}", format!("Error: Invalid setpoint temperature '{}'. Must be a number (e.g. 22.5).", setpoint_raw).red());
+                crate::helpers::exit_with_usage();
+            });
             let setpoint_int = (setpoint_float * 100.0).round() as u32;
 
-            if setpoint_int < 1500 || setpoint_int > 3000 {
+            if setpoint_int < 1500 || setpoint_int > 3000 || setpoint_int % 50 != 0 {
                 eprintln!(
-                    "{}Setpoint temperature '{}' out of valid range (15.0-30.0°C).",
+                    "{}Setpoint temperature '{}' must be 15.0-30.0°C in 0.5°C steps.",
                     "Error: ".red(),
                     setpoint_raw
                 );
-                exit(1);
+                crate::helpers::exit_with_usage();
             }
             Some(json!({"ZoneSetpoint":{"Index":zone_index,"Setpoint":setpoint_int}}))
         }
         "set_max_air" => {
             let percentage_raw = value.expect("Max air percentage is required.");
-            let percentage: u8 = percentage_raw
-                .parse()
-                .expect("Invalid percentage. Must be a number between 0 and 100.");
+            let percentage: u8 = percentage_raw.parse().unwrap_or_else(|_| {
+                eprintln!("{}", format!("Error: Invalid percentage '{}'. Must be a whole number 0-100.", percentage_raw).red());
+                crate::helpers::exit_with_usage();
+            });
             if percentage > 100 {
                 eprintln!("{}", "Error: Max air percentage cannot exceed 100.".red());
-                exit(1);
+                crate::helpers::exit_with_usage();
             }
-            Some(json!({"ZoneAirflow":{"Index":zone_index,"MaxAir":percentage}}))
+            if percentage % 5 != 0 {
+                eprintln!("{}", "Error: Max air percentage must be in steps of 5.".red());
+                crate::helpers::exit_with_usage();
+            }
+            Some(json!({"ZoneMaxAir":{"Index":zone_index,"MaxAir":percentage}}))
         }
         "set_min_air" => {
             let percentage_raw = value.expect("Min air percentage is required.");
-            let percentage: u8 = percentage_raw
-                .parse()
-                .expect("Invalid percentage. Must be a number between 0 and 100.");
+            let percentage: u8 = percentage_raw.parse().unwrap_or_else(|_| {
+                eprintln!("{}", format!("Error: Invalid percentage '{}'. Must be a whole number 0-100.", percentage_raw).red());
+                crate::helpers::exit_with_usage();
+            });
             if percentage > 100 { // Although min, still sensible to cap at 100
                 eprintln!("{}", "Error: Min air percentage cannot exceed 100.".red());
-                exit(1);
+                crate::helpers::exit_with_usage();
             }
-            Some(json!({"ZoneAirflow":{"Index":zone_index,"MinAir":percentage}}))
+            if percentage % 5 != 0 {
+                eprintln!("{}", "Error: Min air percentage must be in steps of 5.".red());
+                crate::helpers::exit_with_usage();
+            }
+            Some(json!({"ZoneMinAir":{"Index":zone_index,"MinAir":percentage}}))
         }
         "set_name" => {
             let new_name = value.expect("New zone name is required.");
+            if new_name.trim().is_empty() {
+                eprintln!("{}", "Error: Zone name cannot be empty.".red());
+                crate::helpers::exit_with_usage();
+            }
             if new_name.len() > 15 {
                 eprintln!("{}", "Error: Zone name cannot exceed 15 characters.".red());
-                exit(1);
+                crate::helpers::exit_with_usage();
             }
             Some(json!({"ZoneName":{"Index":zone_index,"Name":new_name}}))
         }
@@ -131,7 +145,7 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
                 action.red(),
                 "'.\nAvailable actions for zones: status, temp, on, off, open, auto, override, constant, set-setpoint, set-max-air, set-min-air, set-name, summary.".red()
             );
-            exit(1); // Exit if unknown action, no command_data to return
+            crate::helpers::exit_with_usage(); // Exit if unknown action, no command_data to return
         }
     };
 
@@ -176,7 +190,7 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
         };
         // Adjusted padding for messages in control_zone to fix off-by-one alignment
         let visible_message_length = get_visible_length(&message);
-        let spaces_needed = PADDING_WIDTH - visible_message_length;
+        let spaces_needed = PADDING_WIDTH.saturating_sub(visible_message_length);
         println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
         println!("╚{}╝", "═".repeat(BOX_WIDTH));
     }
@@ -199,7 +213,7 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
                     .join(", ")
                     .red()
             );
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
@@ -218,7 +232,7 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
         Ok(val) => val,
         Err(e) => {
             eprintln!("{}", format!("Error querying zone status: {}", e).red());
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
@@ -234,7 +248,7 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
     let damper_pos_text = format!("{}%", zone.damper_pos);
     let zone_type_text = get_zone_type_text(zone.zone_type);
     let batt_volt_text = get_battery_level_text(zone.batt_volt);
-    let rf_signal_text = format!("{}%", zone.rf_signal);
+    let rf_signal_text = get_rf_signal_text(zone.rf_signal);
     let sensor_fault_text = get_sensor_fault_text(zone.sensor_fault); // Using new helper
 
 
@@ -269,9 +283,9 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
     print_line("Sensor Fault:", sensor_fault_text);
     print_line("Damper Skip:", zone.damper_skip.to_string().normal().to_string());
     print_line("Isense:", zone.isense.to_string().normal().to_string());
-    print_line("Calibration:", zone.calibration.to_string().normal().to_string());
-    print_line("RF Signal:", rf_signal_text.normal().to_string());
-    print_line("Battery Voltage:", format!("{}V", batt_volt_text).normal().to_string());
+    print_line("Calibration:", format!("{:+.1}°C", zone.calibration as f32 / 10.0).normal().to_string());
+    print_line("RF Signal:", rf_signal_text);
+    print_line("Battery:", batt_volt_text);
     print_line("Area:", zone.area.to_string().normal().to_string());
     print_line("Bypass:", zone.bypass.to_string().normal().to_string());
     print_line("Balance Max:", format!("{}%", zone.balance_max).normal().to_string());
@@ -303,7 +317,7 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
                     .join(", ")
                     .red()
             );
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
@@ -316,7 +330,7 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
         Ok(val) => val,
         Err(e) => {
             eprintln!("{}", format!("Error querying zone temperature: {}", e).red());
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
@@ -350,18 +364,39 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
 
 // Zone configuration commands
 
+/// Fetch a zone's current status from the controller (exits on failure).
+fn fetch_zone(client: &Client, zone_index: u8) -> crate::models::ZonesV2 {
+    let query_data = json!({ "iZoneV2Request": { "Type": 2, "No": zone_index, "No1": 0 } });
+    let response_value = make_query_request(client, query_data).unwrap_or_else(|e| {
+        eprintln!("{}", format!("Error querying zone {}: {}", zone_index, e).red());
+        crate::helpers::exit_with_usage();
+    });
+    match serde_json::from_value::<crate::models::ZonesV2Response>(response_value) {
+        Ok(r) => r.zones_v2,
+        Err(e) => {
+            eprintln!("{}", format!("Error parsing zone {}: {}", zone_index, e).red());
+            crate::helpers::exit_with_usage();
+        }
+    }
+}
+
 pub fn set_zone_balance_max(client: &Client, zone_name: &str, max: u8) {
     let zone_index = match ZONES.get(zone_name) {
         Some(&index) => index,
         None => {
             eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
     if max > 100 || max % 5 != 0 {
         eprintln!("{}", "Error: BalanceMax must be 0-100 in steps of 5%".red());
-        exit(1);
+        crate::helpers::exit_with_usage();
+    }
+    let current_min = fetch_zone(client, zone_index).balance_min;
+    if max <= current_min {
+        eprintln!("{}", format!("Error: BalanceMax ({}%) must be greater than the zone's BalanceMin ({}%).", max, current_min).red());
+        crate::helpers::exit_with_usage();
     }
 
     const BOX_WIDTH: usize = 70;
@@ -376,7 +411,7 @@ pub fn set_zone_balance_max(client: &Client, zone_name: &str, max: u8) {
     println!("╠{}╣", "═".repeat(BOX_WIDTH));
     let message = format!("Zone '{}' BalanceMax set to {}%.", zone_name.green(), max.to_string().green());
     let visible_message_length = get_visible_length(&message);
-    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    let spaces_needed = PADDING_WIDTH.saturating_sub(visible_message_length);
     println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }
@@ -386,13 +421,18 @@ pub fn set_zone_balance_min(client: &Client, zone_name: &str, min: u8) {
         Some(&index) => index,
         None => {
             eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
     if min > 100 || min % 5 != 0 {
         eprintln!("{}", "Error: BalanceMin must be 0-100 in steps of 5%".red());
-        exit(1);
+        crate::helpers::exit_with_usage();
+    }
+    let current_max = fetch_zone(client, zone_index).balance_max;
+    if min >= current_max {
+        eprintln!("{}", format!("Error: BalanceMin ({}%) must be less than the zone's BalanceMax ({}%).", min, current_max).red());
+        crate::helpers::exit_with_usage();
     }
 
     const BOX_WIDTH: usize = 70;
@@ -407,7 +447,7 @@ pub fn set_zone_balance_min(client: &Client, zone_name: &str, min: u8) {
     println!("╠{}╣", "═".repeat(BOX_WIDTH));
     let message = format!("Zone '{}' BalanceMin set to {}%.", zone_name.green(), min.to_string().green());
     let visible_message_length = get_visible_length(&message);
-    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    let spaces_needed = PADDING_WIDTH.saturating_sub(visible_message_length);
     println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }
@@ -417,7 +457,7 @@ pub fn set_zone_damper_skip(client: &Client, zone_name: &str, skip: bool) {
         Some(&index) => index,
         None => {
             eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
@@ -435,7 +475,7 @@ pub fn set_zone_damper_skip(client: &Client, zone_name: &str, skip: bool) {
     let skip_text = if skip { "enabled".red() } else { "disabled".green() };
     let message = format!("Zone '{}' DamperSkip {}.", zone_name.green(), skip_text);
     let visible_message_length = get_visible_length(&message);
-    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    let spaces_needed = PADDING_WIDTH.saturating_sub(visible_message_length);
     println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }
@@ -445,13 +485,13 @@ pub fn set_zone_sensor_calibration(client: &Client, zone_name: &str, calibrate: 
         Some(&index) => index,
         None => {
             eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
     if calibrate < -50 || calibrate > 50 {
         eprintln!("{}", "Error: Calibration must be between -5.0°C and +5.0°C (-50 to 50)".red());
-        exit(1);
+        crate::helpers::exit_with_usage();
     }
 
     const BOX_WIDTH: usize = 70;
@@ -467,7 +507,7 @@ pub fn set_zone_sensor_calibration(client: &Client, zone_name: &str, calibrate: 
     let calibrate_val = (calibrate as f32) / 10.0;
     let message = format!("Zone '{}' sensor calibration set to {}°C.", zone_name.green(), format!("{:+.1}", calibrate_val).green());
     let visible_message_length = get_visible_length(&message);
-    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    let spaces_needed = PADDING_WIDTH.saturating_sub(visible_message_length);
     println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }
@@ -477,7 +517,7 @@ pub fn set_zone_bypass(client: &Client, zone_name: &str, bypass: bool) {
         Some(&index) => index,
         None => {
             eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
@@ -495,7 +535,7 @@ pub fn set_zone_bypass(client: &Client, zone_name: &str, bypass: bool) {
     let bypass_text = if bypass { "enabled".yellow() } else { "disabled".green() };
     let message = format!("Zone '{}' bypass {}.", zone_name.green(), bypass_text);
     let visible_message_length = get_visible_length(&message);
-    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    let spaces_needed = PADDING_WIDTH.saturating_sub(visible_message_length);
     println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }
@@ -505,13 +545,13 @@ pub fn set_zone_area(client: &Client, zone_name: &str, area: u8) {
         Some(&index) => index,
         None => {
             eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
     if area < 1 {
         eprintln!("{}", "Error: Area must be at least 1 m²".red());
-        exit(1);
+        crate::helpers::exit_with_usage();
     }
 
     const BOX_WIDTH: usize = 70;
@@ -526,7 +566,7 @@ pub fn set_zone_area(client: &Client, zone_name: &str, area: u8) {
     println!("╠{}╣", "═".repeat(BOX_WIDTH));
     let message = format!("Zone '{}' area set to {} m².", zone_name.green(), area.to_string().green());
     let visible_message_length = get_visible_length(&message);
-    let spaces_needed = PADDING_WIDTH - visible_message_length;
+    let spaces_needed = PADDING_WIDTH.saturating_sub(visible_message_length);
     println!("║ {}{}{} ║", message, " ".repeat(spaces_needed), "");
     println!("╚{}╝", "═".repeat(BOX_WIDTH));
 }
@@ -744,7 +784,7 @@ pub fn get_all_zones_summary(client: &Client) {
         }
 
 
-        if zone.batt_volt == 0 && zone.sens_type == 9 {
+        if zone.batt_volt == 2 { // BatteryLevel_e: 0 = Full, 1 = Half, 2 = Empty
 
 
             status_parts.push("LowBatt".red().to_string());
@@ -804,28 +844,28 @@ pub fn get_all_zones_summary(client: &Client) {
             name_col_width = NAME_COL_WIDTH,
 
 
-            mode_col_width = MODE_COL_WIDTH + zone_mode_text.len() - get_visible_length(&zone_mode_text),
+            mode_col_width = MODE_COL_WIDTH + zone_mode_text.chars().count() - get_visible_length(&zone_mode_text),
 
 
-            temp_col_width = TEMP_COL_WIDTH + temp_text.len() - get_visible_length(&temp_text),
+            temp_col_width = TEMP_COL_WIDTH + temp_text.chars().count() - get_visible_length(&temp_text),
 
 
-            setpoint_col_width = SETPOINT_COL_WIDTH + setpoint_text.len() - get_visible_length(&setpoint_text),
+            setpoint_col_width = SETPOINT_COL_WIDTH + setpoint_text.chars().count() - get_visible_length(&setpoint_text),
 
 
-            damper_col_width = DAMPER_COL_WIDTH + damper_text.len() - get_visible_length(&damper_text),
+            damper_col_width = DAMPER_COL_WIDTH + damper_text.chars().count() - get_visible_length(&damper_text),
 
 
-            max_air_col_width = MAX_AIR_COL_WIDTH + max_air_text.len() - get_visible_length(&max_air_text),
+            max_air_col_width = MAX_AIR_COL_WIDTH + max_air_text.chars().count() - get_visible_length(&max_air_text),
 
 
-            status_col_width = STATUS_COL_WIDTH + status_text.len() - get_visible_length(&status_text),
+            status_col_width = STATUS_COL_WIDTH + status_text.chars().count() - get_visible_length(&status_text),
 
 
         );
 
 
-        println!("║{}║", line);
+        println!("║ {} ║", line);
 
 
     }

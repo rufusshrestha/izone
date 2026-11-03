@@ -318,9 +318,13 @@ izone schedule -i 2 status
 izone fav -i 0 set-name "Morning Warmup"
 izone fav -i 1 set-name "Work Day"
 
-# Set schedule times (HH:MM format)
+# Set schedule times (HH:MM or 24-hour HHMM)
 izone fav -i 0 set-time 06:00 08:30
-izone fav -i 1 set-time 08:00 17:00
+izone fav -i 1 set-time 0800 1700   # same as 08:00 17:00
+
+# Use N/A for no start or stop time (e.g., stop-only "Power Off" schedule)
+izone fav -i 2 set-time N/A 08:00
+izone fav -i 3 set-time 21:00 N/A
 
 # Set days enabled (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
 izone fav -i 0 set-days Mon Tue Wed Thu Fri
@@ -338,9 +342,11 @@ izone fav -i 1 disable
 
 # Set zone-specific settings for schedule
 # Format: zone_name:mode:setpoint
-# Example: kitchen:3:2250 (mode 3=vent, setpoint 22.50°C)
-izone fav -i 0 set-zones kitchen:1:2200 master:1:2000
-izone fav -i 1 set-zones living:2:2400 work:2:2300
+# mode: 1=open, 2=close, 3=auto (climate), 4=override, 5=constant
+# setpoint: °C × 100 in 0.5°C steps (1500-3000), e.g. 2250 = 22.5°C
+# Zones you don't list keep their current settings in the schedule.
+izone fav -i 0 set-zones kitchen:3:2200 master:3:2000
+izone fav -i 1 set-zones living:3:2400 work:2:2300   # work zone closed
 ```
 
 #### Complete Schedule Example
@@ -350,7 +356,7 @@ izone fav -i 0 set-name "Morning Warmup"
 izone fav -i 0 set-time 06:00 08:30
 izone fav -i 0 set-days Mon Tue Wed Thu Fri
 izone fav -i 0 set-ac --mode heat --fan low
-izone fav -i 0 set-zones kitchen:2:2100 master:2:2000 living:2:2200
+izone fav -i 0 set-zones kitchen:3:2100 master:3:2000 living:3:2200
 izone fav -i 0 enable
 ```
 
@@ -765,13 +771,14 @@ chmod 644 ~/.config/izone/config.toml
 **Problem**: Zone settings in schedules not working
 
 **Format**: `zone_name:mode:setpoint`
-- mode: 0=auto, 1=cool, 2=heat, 3=vent, 4=dry
-- setpoint: temperature × 100 (e.g., 2250 for 22.5°C)
+- mode is the **zone** mode, not the AC mode: 1=open, 2=close, 3=auto (climate), 4=override, 5=constant
+- setpoint: temperature × 100 in 0.5°C steps, 1500-3000 (e.g., 2250 for 22.5°C)
+- use `set-ac --mode` to set the schedule's AC mode (heat/cool/…)
 
 **Example**:
 ```bash
-izone fav -i 0 set-zones kitchen:2:2200 master:2:2100
-# Sets kitchen to heat mode 22.0°C, master to heat mode 21.0°C
+izone fav -i 0 set-zones kitchen:3:2200 master:3:2100
+# Kitchen in climate control at 22.0°C, master at 21.0°C
 ```
 
 ## Command Reference

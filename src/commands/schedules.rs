@@ -3,7 +3,6 @@
 use reqwest::blocking::Client;
 use serde_json::json;
 use colored::Colorize;
-use std::process::exit;
 
 use crate::api::{make_query_request, make_command_request};
 use crate::constants::{self};
@@ -15,15 +14,24 @@ use crate::models::{SchedulesV2, SchedulesResponseWrapper}; // Import DaysEnable
 // Define the maximum number of schedules (favourtites) as per iZone API documentation
 const MAX_SCHEDULES: u8 = 9; // Schedules 0-8 (9 total)
 
+/// Format a schedule time. The API uses hour 31 / minute 63 (or 255 on some firmware)
+/// to mean "not set"; if either part is out of range the time is shown as N/A.
+fn format_sched_time(h: Option<u8>, m: Option<u8>) -> String {
+    match (h, m) {
+        (Some(h), Some(m)) if h <= 23 && m <= 59 => format!("{:02}:{:02}", h, m),
+        _ => "N/A".to_string(),
+    }
+}
+
 pub fn get_schedule_status(client: &Client, schedule_index: u8) {
     if schedule_index >= MAX_SCHEDULES {
         eprintln!(
-            "{}Error: Schedule index {} is out of valid range (0-{}).",
+            "{}Schedule index {} is out of valid range (0-{}).",
             "Error: ".red(),
             schedule_index,
             MAX_SCHEDULES - 1
         );
-        exit(1);
+        crate::helpers::exit_with_usage();
     }
 
     const BOX_WIDTH: usize = 75;
@@ -40,7 +48,7 @@ pub fn get_schedule_status(client: &Client, schedule_index: u8) {
         Ok(val) => val,
         Err(e) => {
             eprintln!("{}", format!("Error querying schedule status: {}", e).red());
-            exit(1);
+            crate::helpers::exit_with_usage();
         }
     };
 
@@ -61,24 +69,17 @@ pub fn get_schedule_status(client: &Client, schedule_index: u8) {
     print_line("Name:", schedule.name.normal().to_string());
     print_line("Index:", schedule.index.to_string().normal().to_string());
     print_line("Active:", if schedule.active { "Yes".green() } else { "No".red() }.to_string());
-    print_line("System Mode:", get_colored_system_mode(schedule.mode.unwrap_or(0)));
-    print_line("System Fan:", get_fan_speed_text(schedule.fan.unwrap_or(0)));
+    print_line("System Mode:", match schedule.mode.unwrap_or(0) {
+        0 => "N/A".to_string(), // SysMode_Na
+        m => get_colored_system_mode(m),
+    });
+    print_line("System Fan:", match schedule.fan.unwrap_or(0) {
+        0 => "N/A".to_string(), // SysFan_Na
+        f => get_fan_speed_text(f),
+    });
 
-    let start_h = schedule.start_h.unwrap_or(0);
-    let start_m = schedule.start_m.unwrap_or(0);
-    let stop_h = schedule.stop_h.unwrap_or(0);
-    let stop_m = schedule.stop_m.unwrap_or(0);
-
-    let start_time_str = if (start_h == 255 && start_m == 255) || (start_h == 31 && start_m == 63) {
-        "N/A".to_string()
-    } else {
-        format!("{:02}:{:02}", start_h, start_m)
-    };
-    let stop_time_str = if (stop_h == 255 && stop_m == 255) || (stop_h == 31 && stop_m == 63) {
-        "N/A".to_string()
-    } else {
-        format!("{:02}:{:02}", stop_h, stop_m)
-    };
+    let start_time_str = format_sched_time(schedule.start_h, schedule.start_m);
+    let stop_time_str = format_sched_time(schedule.stop_h, schedule.stop_m);
 
     print_line("Start Time:", start_time_str.normal().to_string());
     print_line("Stop Time:", stop_time_str.normal().to_string());
@@ -114,7 +115,7 @@ pub fn get_schedule_status(client: &Client, schedule_index: u8) {
                 &format!("Zone {}:", i),
                 format!(
                     "Mode:{} Setpoint:{}°C",
-                    get_colored_system_mode(zone_set.mode),
+                    crate::commands::zones::get_colored_zone_mode(zone_set.mode), // ZoneMode_e, not SysMode_e
                     format_temp(zone_set.setpoint)
                 ).to_string(),
             );
@@ -207,21 +208,8 @@ pub fn get_all_schedules_summary(client: &Client) {
 
         for schedule in schedules_data {
             let active_status_colored = if schedule.active { "ON".green() } else { "OFF".red() }.to_string();
-            let start_h = schedule.start_h.unwrap_or(0);
-            let start_m = schedule.start_m.unwrap_or(0);
-            let stop_h = schedule.stop_h.unwrap_or(0);
-            let stop_m = schedule.stop_m.unwrap_or(0);
-
-            let start_time_str = if (start_h == 255 && start_m == 255) || (start_h == 31 && start_m == 63) {
-                "N/A".to_string()
-            } else {
-                format!("{:02}:{:02}", start_h, start_m)
-            };
-            let stop_time_str = if (stop_h == 255 && stop_m == 255) || (stop_h == 31 && stop_m == 63) {
-                "N/A".to_string()
-            } else {
-                format!("{:02}:{:02}", stop_h, stop_m)
-            };
+            let start_time_str = format_sched_time(schedule.start_h, schedule.start_m);
+            let stop_time_str = format_sched_time(schedule.stop_h, schedule.stop_m);
 
             // Access days from the nested struct
             let mut enabled_days_vec = Vec::new();
@@ -270,16 +258,20 @@ pub fn get_all_schedules_summary(client: &Client) {
 pub fn set_schedule_name(client: &Client, schedule_index: u8, new_name: &str) {
     if schedule_index >= MAX_SCHEDULES {
         eprintln!(
-            "{}Error: Schedule index {} is out of valid range (0-{}).",
+            "{}Schedule index {} is out of valid range (0-{}).",
             "Error: ".red(),
             schedule_index,
             MAX_SCHEDULES - 1
         );
-        exit(1);
+        crate::helpers::exit_with_usage();
     }
-    if new_name.len() > 16 {
+    if new_name.trim().is_empty() {
+        eprintln!("{}", "Error: Schedule name cannot be empty.".red());
+        crate::helpers::exit_with_usage();
+    }
+    if new_name.len() > 15 {
         eprintln!("{}", "Error: Schedule name cannot exceed 15 characters.".red());
-        exit(1);
+        crate::helpers::exit_with_usage();
     }
 
     let command_data = json!({"SchedName": {"Index": schedule_index, "Name": new_name}});
@@ -289,16 +281,41 @@ pub fn set_schedule_name(client: &Client, schedule_index: u8, new_name: &str) {
     println!("Schedule {} name set to '{}'.", schedule_index.to_string().green(), new_name.green());
 }
 
+/// Fetch the current settings for a schedule. `SchedSettings` overwrites both the
+/// times and the days in one command, so callers that only change one of them must
+/// send back the existing values for the other.
+fn fetch_schedule(client: &Client, schedule_index: u8) -> SchedulesV2 {
+    let query_data = json!({ "iZoneV2Request": { "Type": 3, "No": schedule_index, "No1": 0 } });
+    let response_value = match make_query_request(client, query_data) {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{}", format!("Error querying schedule {}: {}", schedule_index, e).red());
+            crate::helpers::exit_with_usage();
+        }
+    };
+    match serde_json::from_value::<SchedulesResponseWrapper>(response_value) {
+        Ok(wrapper) => wrapper.schedules_v2,
+        Err(e) => {
+            eprintln!("{}", format!("Error parsing schedule {}: {}", schedule_index, e).red());
+            crate::helpers::exit_with_usage();
+        }
+    }
+}
+
 pub fn set_schedule_time(client: &Client, schedule_index: u8, start_h: u8, start_m: u8, stop_h: u8, stop_m: u8) {
     if schedule_index >= MAX_SCHEDULES {
-        eprintln!("{}Error: Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
-        exit(1);
+        eprintln!("{}Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
+        crate::helpers::exit_with_usage();
     }
-    if start_h > 23 || start_m > 59 || stop_h > 23 || stop_m > 59 {
+    // 31:63 is the iZone "not set" sentinel (displayed as N/A); allow it for either time.
+    let valid = |h: u8, m: u8| (h <= 23 && m <= 59) || (h == 31 && m == 63);
+    if !valid(start_h, start_m) || !valid(stop_h, stop_m) {
         eprintln!("{}", "Error: Invalid time format. Hours must be 0-23, minutes 0-59.".red());
-        exit(1);
+        crate::helpers::exit_with_usage();
     }
 
+    // Preserve the existing days so setting the time doesn't clear them.
+    let d = fetch_schedule(client, schedule_index).days_enabled;
     let command_data = json!({
         "SchedSettings": {
             "Index": schedule_index,
@@ -307,24 +324,31 @@ pub fn set_schedule_time(client: &Client, schedule_index: u8, start_h: u8, start
             "StopH": stop_h,
             "StopM": stop_m,
             "DaysEnabled": {
-                "M": 0, "Tu": 0, "W": 0, "Th": 0, "F": 0, "Sa": 0, "Su": 0
+                "M": d.monday as u8,
+                "Tu": d.tuesday as u8,
+                "W": d.wednesday as u8,
+                "Th": d.thursday as u8,
+                "F": d.friday as u8,
+                "Sa": d.saturday as u8,
+                "Su": d.sunday as u8
             }
         }
     });
     make_command_request(client, command_data)
         .expect(&format!("Failed to set time for schedule {}", schedule_index));
 
+    let fmt = |h: u8, m: u8| if h == 31 && m == 63 { "N/A".to_string() } else { format!("{:02}:{:02}", h, m) };
     println!(
-        "Schedule {} time set to Start: {:02}:{:02}, Stop: {:02}:{:02}.",
+        "Schedule {} time set to Start: {}, Stop: {}.",
         schedule_index.to_string().green(),
-        start_h, start_m, stop_h, stop_m
+        fmt(start_h, start_m), fmt(stop_h, stop_m)
     );
 }
 
 pub fn set_schedule_days(client: &Client, schedule_index: u8, days: Vec<String>) {
     if schedule_index >= MAX_SCHEDULES {
-        eprintln!("{}Error: Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
-        exit(1);
+        eprintln!("{}Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
+        crate::helpers::exit_with_usage();
     }
 
     let mut m = 0;
@@ -344,19 +368,31 @@ pub fn set_schedule_days(client: &Client, schedule_index: u8, days: Vec<String>)
             "f" | "fri" => f = 1,
             "sa" | "sat" => sa = 1,
             "su" | "sun" => su = 1,
+            "none" => {} // explicit: no days enabled
             _ => {
-                eprintln!("{}Warning: Unknown day '{}'. Skipping.", "Warning: ".yellow(), day);
+                eprintln!("{}", format!("Error: Unknown day '{}'. Use Mon Tue Wed Thu Fri Sat Sun (or 'none').", day).red());
+                crate::helpers::exit_with_usage();
             }
         }
     }
 
+    // Preserve the existing start/stop times so setting days doesn't clear them.
+    // The controller may report "not set" as 31/63, 255/255, or a half-set value like 19:63;
+    // SchedSettings only accepts a valid time or 31/63, so normalise anything else to 31/63.
+    let current = fetch_schedule(client, schedule_index);
+    let normalise = |h: Option<u8>, m: Option<u8>| match (h, m) {
+        (Some(h), Some(m)) if h <= 23 && m <= 59 => (h, m),
+        _ => (31, 63),
+    };
+    let (start_h, start_m) = normalise(current.start_h, current.start_m);
+    let (stop_h, stop_m) = normalise(current.stop_h, current.stop_m);
     let command_data = json!({
         "SchedSettings": {
             "Index": schedule_index,
-            "StartH": 31,
-            "StartM": 63,
-            "StopH": 31,
-            "StopM": 63,
+            "StartH": start_h,
+            "StartM": start_m,
+            "StopH": stop_h,
+            "StopM": stop_m,
             "DaysEnabled": {
                 "M": m,
                 "Tu": tu,
@@ -377,8 +413,8 @@ pub fn set_schedule_days(client: &Client, schedule_index: u8, days: Vec<String>)
 
 pub fn set_schedule_mode_fan(client: &Client, schedule_index: u8, mode: Option<&str>, fan: Option<&str>) {
     if schedule_index >= MAX_SCHEDULES {
-        eprintln!("{}Error: Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
-        exit(1);
+        eprintln!("{}Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
+        crate::helpers::exit_with_usage();
     }
 
     let mut commands = Vec::new();
@@ -387,8 +423,8 @@ pub fn set_schedule_mode_fan(client: &Client, schedule_index: u8, mode: Option<&
         let mode_val = match crate::helpers::get_system_mode_value(m_str) {
             Some(v) => v,
             None => {
-                eprintln!("{}Error: Invalid mode '{}'. Available modes: auto, cool, heat, vent, dry.", "Error: ".red(), m_str);
-                exit(1);
+                eprintln!("{}Invalid mode '{}'. Available modes: auto, cool, heat, vent, dry.", "Error: ".red(), m_str);
+                crate::helpers::exit_with_usage();
             }
         };
         commands.push(json!({"SchedAcMode": {"Index": schedule_index, "Mode": mode_val}}));
@@ -403,8 +439,8 @@ pub fn set_schedule_mode_fan(client: &Client, schedule_index: u8, mode: Option<&
             "top" => 5,
             "nongasheat" => 99,
             _ => {
-                eprintln!("{}Error: Invalid fan speed '{}'. Available: low, medium, high, auto, top, nongasheat.", "Error: ".red(), f_str);
-                exit(1);
+                eprintln!("{}Invalid fan speed '{}'. Available: low, medium, high, auto, top, nongasheat.", "Error: ".red(), f_str);
+                crate::helpers::exit_with_usage();
             }
         };
         commands.push(json!({"SchedAcFan": {"Index": schedule_index, "Fan": fan_val}}));
@@ -412,7 +448,7 @@ pub fn set_schedule_mode_fan(client: &Client, schedule_index: u8, mode: Option<&
 
     if commands.is_empty() {
         eprintln!("{}", "Error: No mode or fan speed provided to set for schedule.".red());
-        exit(1);
+        crate::helpers::exit_with_usage();
     }
 
     for cmd in commands {
@@ -424,8 +460,8 @@ pub fn set_schedule_mode_fan(client: &Client, schedule_index: u8, mode: Option<&
 
 pub fn enable_schedule(client: &Client, schedule_index: u8) {
     if schedule_index >= MAX_SCHEDULES {
-        eprintln!("{}Error: Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
-        exit(1);
+        eprintln!("{}Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
+        crate::helpers::exit_with_usage();
     }
     let command_data = json!({"SchedEnable": {"Index": schedule_index, "Enabled": 1}});
     make_command_request(client, command_data)
@@ -435,8 +471,8 @@ pub fn enable_schedule(client: &Client, schedule_index: u8) {
 
 pub fn disable_schedule(client: &Client, schedule_index: u8) {
     if schedule_index >= MAX_SCHEDULES {
-        eprintln!("{}Error: Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
-        exit(1);
+        eprintln!("{}Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
+        crate::helpers::exit_with_usage();
     }
     let command_data = json!({"SchedEnable": {"Index": schedule_index, "Enabled": 0}});
     make_command_request(client, command_data)
@@ -446,42 +482,68 @@ pub fn disable_schedule(client: &Client, schedule_index: u8) {
 
 pub fn set_schedule_zones(client: &Client, schedule_index: u8, zone_settings: Vec<(String, u8, u32)>) {
     if schedule_index >= MAX_SCHEDULES {
-        eprintln!("{}Error: Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
-        exit(1);
+        eprintln!("{}Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
+        crate::helpers::exit_with_usage();
     }
 
-    let mut zones_array = Vec::new();
+    // Validate every entry before touching the controller, so one bad entry
+    // doesn't result in a partial update.
+    let mut changes: Vec<(String, u8, u8, u32)> = Vec::new(); // (name, zone index, mode, setpoint)
+    let mut errors: Vec<String> = Vec::new();
     for (zone_name, mode_val, setpoint_raw) in zone_settings {
-        let zone_index_map = match crate::constants::ZONES.get(zone_name.as_str()) {
+        let zone_index = match crate::constants::ZONES.get(zone_name.as_str()) {
             Some(&index) => index,
             None => {
-                eprintln!(
-                    "{}Error: Unknown zone '{}'. Skipping this zone for schedule {}.",
-                    "Error: ".red(), zone_name, schedule_index
-                );
+                let mut known: Vec<&str> = crate::constants::ZONES.keys().copied().collect();
+                known.sort();
+                errors.push(format!("Unknown zone '{}'. Known zones: {}", zone_name, known.join(", ")));
                 continue;
             }
         };
-
-        if setpoint_raw < 1500 || setpoint_raw > 3000 {
-            eprintln!(
-                "{}Error: Setpoint '{}' for zone '{}' is out of valid range (15.0-30.0°C). Skipping.",
-                "Error: ".red(), format_temp(setpoint_raw), zone_name
-            );
-            continue;
+        if setpoint_raw < 1500 || setpoint_raw > 3000 || setpoint_raw % 50 != 0 {
+            errors.push(format!(
+                "Setpoint '{}' for zone '{}' must be 1500-3000 in steps of 50 (15.0-30.0°C in 0.5°C steps).",
+                setpoint_raw, zone_name
+            ));
         }
-
-        zones_array.push(json!({
-            "Index": zone_index_map,
-            "Mode": mode_val,
-            "Setpoint": setpoint_raw
-        }));
+        if !(1..=5).contains(&mode_val) {
+            errors.push(format!(
+                "Mode '{}' for zone '{}' is invalid (1=open, 2=close, 3=auto, 4=override, 5=constant).",
+                mode_val, zone_name
+            ));
+        }
+        if changes.iter().any(|(_, idx, _, _)| *idx == zone_index) {
+            errors.push(format!("Zone '{}' is given more than once.", zone_name));
+        }
+        changes.push((zone_name, zone_index, mode_val, setpoint_raw));
+    }
+    if !errors.is_empty() {
+        for e in &errors {
+            eprintln!("{}", format!("Error: {}", e).red());
+        }
+        eprintln!("{}", "No changes were made.".red());
+        crate::helpers::exit_with_usage();
     }
 
-    if zones_array.is_empty() {
-        eprintln!("{}", "No valid zone settings provided for schedule.".red());
-        exit(1);
+    // SchedZones takes the full array of zones; position in the array is the zone index.
+    // Start from the schedule's current zones so unspecified zones are preserved.
+    let mut zones: Vec<(u8, u32)> = match fetch_schedule(client, schedule_index).zones {
+        Some(z) if !z.is_empty() => z.iter().map(|z| (z.mode, z.setpoint)).collect(),
+        _ => {
+            eprintln!("{}", format!("Error: Schedule {} returned no zone settings to update.", schedule_index).red());
+            crate::helpers::exit_with_usage();
+        }
+    };
+    for (zone_name, zone_index, mode_val, setpoint_raw) in &changes {
+        match zones.get_mut(*zone_index as usize) {
+            Some(slot) => *slot = (*mode_val, *setpoint_raw),
+            None => {
+                eprintln!("{}", format!("Error: Zone '{}' (index {}) is not in schedule {}'s zone list. No changes were made.", zone_name, zone_index, schedule_index).red());
+                crate::helpers::exit_with_usage();
+            }
+        }
     }
+    let zones_array: Vec<_> = zones.iter().map(|(m, s)| json!({"Mode": m, "Setpoint": s})).collect();
 
     let command_data = json!({
         "SchedZones": {

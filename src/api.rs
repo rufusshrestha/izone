@@ -34,7 +34,16 @@ pub fn make_query_request(client: &Client, payload: Value) -> Result<Value, Stri
     match response {
         Ok(res) => {
             let status = res.status();
-            let json_body: Value = res.json().map_err(|e| {
+            let text = res.text().map_err(|e| format!("Failed to read response from iZone controller at {}: {}", &**IZONE_IP, e))?;
+            // The controller replies with a bare "{ERROR}" (not JSON) when it rejects a request,
+            // e.g. an index that doesn't exist on this system.
+            if text.trim().eq_ignore_ascii_case("{error}") {
+                if unsafe { VERBOSE } {
+                    println!("Request URL: {}\nRequest Payload: {}\nResponse Body (Text): {}", query_url, payload, text);
+                }
+                return Err(format!("iZone controller rejected the request {} (does that zone/schedule exist on this system?)", payload));
+            }
+            let json_body: Value = serde_json::from_str(&text).map_err(|e| {
                 format!(
                     "Unexpected response from iZone controller at {}.\n\
                     Ensure your configuration has the correct iZone IP and the controller is reachable in your network.\n\
@@ -57,12 +66,12 @@ pub fn make_query_request(client: &Client, payload: Value) -> Result<Value, Stri
                 Err(format!("API query failed with status: {} and body: {}", status, json_body))
             }
         }
-        Err(e) => Err(format!(
+        Err(e) => Err({ crate::helpers::mark_network_error(); format!(
             "Failed to connect to iZone controller at {}.\n\
             Ensure the IP address is correct and the controller is reachable in your network.\n\
             Error details: {}",
             &**IZONE_IP, e
-        )),
+        ) }),
     }
 }
 
@@ -109,7 +118,7 @@ pub fn make_command_request(client: &Client, payload: Value) -> Result<(), Strin
             }
 
             // Check for common error indicators in the text response
-            if res_text.contains("error") || res_text.contains("Error") {
+            if res_text.to_lowercase().contains("error") { // device replies "{ERROR}" on rejected commands
                 eprintln!("{}", format!("API Error: {}", res_text).red());
                 exit(1); // Exit directly on API error for commands
             }
@@ -117,14 +126,29 @@ pub fn make_command_request(client: &Client, payload: Value) -> Result<(), Strin
             if status.is_success() {
                 Ok(()) // Return Ok(()) on success
             } else {
-                Err(format!("API command failed with status: {} and body: {}", status, res_text))
+                // Exit cleanly rather than letting callers' `.expect()` panic.
+                eprintln!("{}", format!("API command failed with status: {} and body: {}", status, res_text).red());
+                exit(1);
             }
         }
-        Err(e) => Err(format!(
-            "Failed to connect to iZone controller at {}.\n\
-            Ensure the IP address is correct and the controller is reachable in your network.\n\
-            Error details: {}",
-            &**IZONE_IP, e
-        )),
+        Err(e) => {
+            // Exit cleanly rather than letting callers' `.expect()` panic.
+            eprintln!("{}", format!(
+                "Failed to connect to iZone controller at {}.\n\
+                Ensure the IP address is correct and the controller is reachable in your network.\n\
+                Error details: {}",
+                &**IZONE_IP, e
+            ).red());
+            exit(1);
+        }
     }
+}
+
+/// HTTP client with timeouts so an unreachable controller fails fast instead of hanging.
+pub fn build_client() -> Client {
+    Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .unwrap_or_else(|_| Client::new())
 }
