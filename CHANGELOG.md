@@ -5,6 +5,13 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.1.2] - 2026-11-04
+
+### Changed
+- Airflow locks are respected: when "Airflow lock" (min and max) or "Minimum airflow lock" is on,
+  the web UI greys out the locked sliders with a note, the web server rejects the change, and
+  `zone <name> set-min-air` / `set-max-air` refuse with the command to unlock first.
+
 ## [1.1.1] - 2026-11-04
 
 ### Changed

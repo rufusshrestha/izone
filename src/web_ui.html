@@ -228,6 +228,10 @@ label.field { display: grid; gap: 6px; font-size: 13px; color: var(--muted); fon
 .kv b { font-weight: 650; }
 .range-row { display: grid; grid-template-columns: 90px 1fr 56px; gap: 12px; align-items: center; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=range]:disabled { opacity: .4; cursor: not-allowed; filter: grayscale(1); }
+.range-row.locked .muted, .range-row.locked b { opacity: .5; }
+.lock-note { font-size: 12.5px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+.lock-note svg { width: 14px; height: 14px; }
 
 /* ---------- Toasts & misc ---------- */
 .toasts { position: fixed; bottom: 22px; right: 22px; display: grid; gap: 10px; z-index: 60; max-width: min(420px, calc(100vw - 44px)); }
@@ -702,14 +706,24 @@ function zoneDialog(index) {
   const battery = ["Full", "Half", "Empty"][z.BattVolt] ?? "—";
   const rf = ["Full", "Half", "Quarter", "None"][z.RfSignal] ?? "—";
   const sensor = { 0: "CCTS", 1: "CSM", 2: "iSense", 3: "Wireless", 4: "Wired", 255: "None" }[z.SensType] ?? z.SensType;
+  // Airflow locks (Settings → Airflow & dampers): AirflowLock locks min and max, AirflowMinLock locks min only.
+  const sys = state.system || {};
+  const maxLocked = sys.AirflowLock === 1;
+  const minLocked = maxLocked || sys.AirflowMinLock === 1;
+  const lockNote = maxLocked
+    ? `<div class="lock-note">${icon("lock")}Airflow is locked. Turn off "Airflow lock" in Settings → Airflow &amp; dampers to adjust.</div>`
+    : minLocked
+      ? `<div class="lock-note">${icon("lock")}Minimum airflow is locked. Turn off "Minimum airflow lock" in Settings → Airflow &amp; dampers to adjust it.</div>`
+      : "";
   const m = openModal(`${modalHead(esc(z.Name) + ` <span class="idx">${z.Index}</span>`)}
     <div class="modal-body">
       <label class="field">Name<input type="text" id="zd-name" maxlength="15" value="${esc(z.Name)}"></label>
       <div class="field" style="display:grid;gap:6px"><span class="kicker">Mode</span>
         ${seg([3, 1, 2, 4, 5].map(v => ({ id: ZONE_MODES[v].id, label: ZONE_MODES[v].label })), (ZONE_MODES[z.Mode] || {}).id, "zd-mode", "", "small")}</div>
       <div style="display:grid;gap:10px"><span class="kicker">Airflow</span>
-        <div class="range-row"><span class="muted">Minimum</span><input type="range" id="zd-min" min="0" max="100" step="5" value="${z.MinAir}"><b id="zd-min-v">${z.MinAir}%</b></div>
-        <div class="range-row"><span class="muted">Maximum</span><input type="range" id="zd-max" min="0" max="100" step="5" value="${z.MaxAir}"><b id="zd-max-v">${z.MaxAir}%</b></div>
+        <div class="range-row ${minLocked ? "locked" : ""}"><span class="muted">Minimum</span><input type="range" id="zd-min" min="0" max="100" step="5" value="${z.MinAir}" ${minLocked ? "disabled" : ""}><b id="zd-min-v">${z.MinAir}%</b></div>
+        <div class="range-row ${maxLocked ? "locked" : ""}"><span class="muted">Maximum</span><input type="range" id="zd-max" min="0" max="100" step="5" value="${z.MaxAir}" ${maxLocked ? "disabled" : ""}><b id="zd-max-v">${z.MaxAir}%</b></div>
+        ${lockNote}
       </div>
       <div class="kv">
         <div><small>Sensor</small><b>${esc(sensor)}</b></div>

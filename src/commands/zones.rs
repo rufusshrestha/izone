@@ -24,6 +24,28 @@ pub fn get_colored_zone_mode(mode: u8) -> String {
     }
 }
 
+/// Refuse to change airflow while it's locked on the controller.
+/// AirflowLock locks both min and max; AirflowMinLock locks min only.
+fn check_airflow_lock(client: &Client, min: bool) {
+    let sys = make_query_request(client, json!({ "iZoneV2Request": { "Type": 1, "No": 0, "No1": 0 } }))
+        .ok()
+        .and_then(|v| v.get("SystemV2").cloned());
+    let Some(sys) = sys else { return }; // can't tell; let the controller decide
+    let flag = |k: &str| sys.get(k).and_then(|v| v.as_i64()) == Some(1);
+    let (locked, setting, command) = if flag("AirflowLock") {
+        (true, "Airflow lock (min and max)", "izone config set-airflow-lock false")
+    } else if min && flag("AirflowMinLock") {
+        (true, "Minimum airflow lock", "izone config set-airflow-min-lock false")
+    } else {
+        (false, "", "")
+    };
+    if locked {
+        eprintln!("{}", format!("Error: {} airflow adjustment is locked by \"{}\".", if min { "Minimum" } else { "Maximum" }, setting).red());
+        eprintln!("Unlock it first: {}", command);
+        std::process::exit(1);
+    }
+}
+
 pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Option<&str>) {
     let zone_index = match ZONES.get(zone_name) {
         Some(&index) => index,
@@ -94,6 +116,7 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
                 eprintln!("{}", "Error: Max air percentage must be in steps of 5.".red());
                 crate::helpers::exit_with_usage();
             }
+            check_airflow_lock(client, false);
             Some(json!({"ZoneMaxAir":{"Index":zone_index,"MaxAir":percentage}}))
         }
         "set_min_air" => {
@@ -110,6 +133,7 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
                 eprintln!("{}", "Error: Min air percentage must be in steps of 5.".red());
                 crate::helpers::exit_with_usage();
             }
+            check_airflow_lock(client, true);
             Some(json!({"ZoneMinAir":{"Index":zone_index,"MinAir":percentage}}))
         }
         "set_name" => {

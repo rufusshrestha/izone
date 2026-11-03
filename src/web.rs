@@ -854,6 +854,12 @@ fn post_zone(ctx: &Ctx, index: u8, b: &Value) -> ApiResult {
         }
         cmds.push(json!({"ZoneSetpoint": {"Index": index, "Setpoint": raw}}));
     }
+    if num(&sys, "AirflowLock") == 1 && (b.get("max_air").is_some() || b.get("min_air").is_some()) {
+        return Err(bad("Airflow adjustment is locked. Turn off \"Airflow lock\" in Settings first."));
+    }
+    if num(&sys, "AirflowMinLock") == 1 && b.get("min_air").is_some() {
+        return Err(bad("Minimum airflow adjustment is locked. Turn off \"Minimum airflow lock\" in Settings first."));
+    }
     let max = b.get("max_air").map(|v| percent_step5(v, "Max air")).transpose()?;
     let min = b.get("min_air").map(|v| percent_step5(v, "Min air")).transpose()?;
     if let (Some(lo), Some(hi)) = (min, max) {
