@@ -1,7 +1,7 @@
 # izone/Cargo.toml
 [package]
 name = "izone"
-version = "1.0.5"
+version = "1.0.6"
 edition = "2024"
 authors = ["Rufus Shrestha"]
 license = "MIT"

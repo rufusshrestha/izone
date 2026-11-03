@@ -119,7 +119,7 @@ pub fn make_command_request(client: &Client, payload: Value) -> Result<(), Strin
 
             // Check for common error indicators in the text response
             if res_text.to_lowercase().contains("error") { // device replies "{ERROR}" on rejected commands
-                eprintln!("{}", format!("API Error: {}", res_text).red());
+                eprintln!("{}", format!("Error: the iZone controller rejected the command {} (reply: {})", payload, res_text.trim()).red());
                 exit(1); // Exit directly on API error for commands
             }
 

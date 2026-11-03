@@ -222,6 +222,10 @@ struct ScheduleArgs {
     #[arg(short = 'i', long = "index", global = true, help = "The index of the schedule (0-8). May be given before or after the action.")]
     index: Option<u8>,
 
+    /// Schedule index given positionally, like zones: `izone fav 3 delete`.
+    #[arg(value_name = "INDEX", help = "Schedule index (0-8), same as -i (e.g. izone fav 3 delete)")]
+    position: Option<u8>,
+
     /// Defaults to `status`.
     #[command(subcommand)]
     action: Option<ScheduleAction>,
@@ -232,7 +236,10 @@ struct ScheduleArgs {
 enum ScheduleAction {
     /// Get status for a specific schedule, or a summary of all favourites / schedules if no index is provided. (status|s)
     #[clap(name = "status", aliases = &["s"])]
-    Status,
+    Status {
+        #[arg(value_name = "INDEX", help = "Schedule index (0-8), same as -i")]
+        pos: Option<u8>, // not named `index`: that would shadow the global -i/--index
+    },
     /// Set the name of a schedule.
     #[clap(name = "set-name")]
     SetName {
@@ -262,14 +269,22 @@ enum ScheduleAction {
         fan: Option<String>,
     },
     /// Enable a schedule. E.g, izone fav -i 0 enable
-    Enable,
+    Enable {
+        #[arg(value_name = "INDEX", help = "Schedule index (0-8), same as -i")]
+        pos: Option<u8>, // not named `index`: that would shadow the global -i/--index
+    },
     /// Disable a schedule. E.g, izone fav -i 0 disable
-    Disable,
-    /// Clear a schedule: disable it and remove its start/stop times and days (asks for confirmation). (delete|clear)
+    Disable {
+        #[arg(value_name = "INDEX", help = "Schedule index (0-8), same as -i")]
+        pos: Option<u8>, // not named `index`: that would shadow the global -i/--index
+    },
+    /// Clear a schedule: disable it and remove its name, start/stop times and days (asks for confirmation). (delete|clear)
     #[clap(name = "delete", aliases = &["clear"])]
     Delete {
         #[arg(short = 'y', long = "yes", help = "Don't ask for confirmation")]
         yes: bool,
+        #[arg(value_name = "INDEX", help = "Schedule index (0-8), same as -i")]
+        pos: Option<u8>, // not named `index`: that would shadow the global -i/--index
     },
     /// Set specific zone modes and setpoints within a schedule.
     #[clap(name = "set-zones")]
@@ -841,16 +856,33 @@ fn main() {
         }
         // New: Handle schedule commands
         Commands::Schedule(args) => {
-            match args.action.unwrap_or(ScheduleAction::Status) {
-                ScheduleAction::Status => {
-                    if let Some(index) = args.index {
+            let action = args.action.unwrap_or(ScheduleAction::Status { pos: None });
+            // The index may come from -i, a position after `fav`, or a position after the action.
+            let action_index = match &action {
+                ScheduleAction::Status { pos }
+                | ScheduleAction::Enable { pos }
+                | ScheduleAction::Disable { pos }
+                | ScheduleAction::Delete { pos, .. } => *pos,
+                _ => None,
+            };
+            let mut given: Vec<u8> = [args.index, args.position, action_index].into_iter().flatten().collect();
+            given.sort();
+            given.dedup();
+            if given.len() > 1 {
+                eprintln!("{}", format!("Error: conflicting schedule indexes given: {:?}. Give the index once.", given).red());
+                helpers::exit_with_usage();
+            }
+            let index = given.first().copied();
+            match action {
+                ScheduleAction::Status { .. } => {
+                    if let Some(index) = index {
                         schedules::get_schedule_status(&client, index);
                     } else {
                         schedules::get_all_schedules_summary(&client);
                     }
                 }
                 ScheduleAction::SetName { new_name } => {
-                    if let Some(index) = args.index {
+                    if let Some(index) = index {
                         schedules::set_schedule_name(&client, index, &new_name);
                     } else {
                         eprintln!("{}", "Error: 'izone fav set-name' requires a schedule index (-i <0-8>).".red());
@@ -858,7 +890,7 @@ fn main() {
                     }
                 }
                 ScheduleAction::SetTime { start_time, stop_time } => {
-                    if let Some(index) = args.index {
+                    if let Some(index) = index {
                         let parse_time = |time_str: &str| -> Result<(u8, u8), String> {
                             // "N/A" (or "none"/"-") means no time; 31:63 is the iZone "not set" sentinel.
                             if matches!(time_str.to_lowercase().as_str(), "n/a" | "na" | "none" | "-") {
@@ -902,7 +934,7 @@ fn main() {
                     }
                 }
                 ScheduleAction::SetDays { days } => {
-                    if let Some(index) = args.index {
+                    if let Some(index) = index {
                         schedules::set_schedule_days(&client, index, days);
                     } else {
                         eprintln!("{}", "Error: 'izone fav set-days' requires a schedule index (-i <0-8>).".red());
@@ -910,7 +942,7 @@ fn main() {
                     }
                 }
                 ScheduleAction::SetAc { mode, fan } => {
-                    if let Some(index) = args.index {
+                    if let Some(index) = index {
                         let mode_str = mode.as_deref(); // Convert Option<String> to Option<&str>
                         let fan_str = fan.as_deref(); // Convert Option<String> to Option<&str>
                         schedules::set_schedule_mode_fan(&client, index, mode_str, fan_str);
@@ -919,24 +951,24 @@ fn main() {
                         helpers::exit_with_usage();
                     }
                 }
-                ScheduleAction::Enable => {
-                    if let Some(index) = args.index {
+                ScheduleAction::Enable { .. } => {
+                    if let Some(index) = index {
                         schedules::enable_schedule(&client, index);
                     } else {
                         eprintln!("{}", "Error: 'izone fav enable' requires a schedule index (-i <0-8>).".red());
                         helpers::exit_with_usage();
                     }
                 }
-                ScheduleAction::Disable => {
-                    if let Some(index) = args.index {
+                ScheduleAction::Disable { .. } => {
+                    if let Some(index) = index {
                         schedules::disable_schedule(&client, index);
                     } else {
                         eprintln!("{}", "Error: 'izone fav disable' requires a schedule index (-i <0-8>).".red());
                         helpers::exit_with_usage();
                     }
                 }
-                ScheduleAction::Delete { yes } => {
-                    if let Some(index) = args.index {
+                ScheduleAction::Delete { yes, .. } => {
+                    if let Some(index) = index {
                         schedules::clear_schedule(&client, index, yes);
                     } else {
                         eprintln!("{}", "Error: 'izone fav delete' requires a schedule index (-i <0-8>).".red());
@@ -944,7 +976,7 @@ fn main() {
                     }
                 }
                 ScheduleAction::SetZones { zone_settings } => {
-                    if let Some(index) = args.index {
+                    if let Some(index) = index {
                         let mut parsed_zone_settings = Vec::new();
                         for setting_str in zone_settings {
                             let parts: Vec<&str> = setting_str.split(':').collect();

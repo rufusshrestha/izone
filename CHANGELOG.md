@@ -5,6 +5,21 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.0.6] - 2026-11-03
+
+### Fixed
+- `fav delete` failed with `{ERROR}` on an already-disabled schedule: the controller rejects
+  `SchedEnable` for a schedule that isn't set up, so the disable step is now skipped when not needed
+- `fav disable` on an already-disabled schedule reports that instead of sending a command
+- `-i` after `status`/`enable`/`disable`/`delete` works again
+
+### Changed
+- `fav delete` also clears the schedule's name (to empty) and only sends the steps needed,
+  reporting each one; a schedule that's already clear is reported without prompting
+- Schedule index can be given positionally, like zones: `izone fav 6 delete`, `izone fav delete 6`,
+  `izone fav 3` (conflicting indexes are rejected)
+- Rejected commands show the command sent: `the iZone controller rejected the command {...}`
+
 ## [1.0.5] - 2026-11-03
 
 ### Added

@@ -172,14 +172,14 @@ pub const EXAMPLES: &[(&str, &[&str])] = &[
     ("zone set-bypass", &["izone zone kitchen set-bypass true"]),
     ("zone set-area", &["izone zone kitchen set-area 20   # m², 1-255"]),
     // fav: -i <index> may go before or after the action
-    ("fav status", &["izone fav status          # all schedules (or: izone fav s, or just: izone fav)", "izone fav -i 3 status     # one schedule (0-8) (or: izone fav -i 3)"]),
+    ("fav status", &["izone fav status          # all schedules (or: izone fav s, or just: izone fav)", "izone fav -i 3 status     # one schedule (0-8) (or: izone fav 3)"]),
     ("fav set-name", &["izone fav -i 3 set-name \"Night\"   # max 15 chars"]),
     ("fav set-time", &["izone fav -i 3 set-time 21:00 23:00", "izone fav -i 3 set-time 2100 2300   # 24-hour HHMM also works", "izone fav -i 0 set-time N/A 08:00   # stop only", "izone fav -i 4 set-time 00:20 N/A   # start only"]),
     ("fav set-days", &["izone fav -i 0 set-days Mon Tue Wed Thu Fri", "izone fav -i 5 set-days Sat Sun", "izone fav -i 6 set-days none"]),
     ("fav set-ac", &["izone fav -i 3 set-ac --mode cool --fan auto", "izone fav -i 3 set-ac --mode heat"]),
     ("fav enable", &["izone fav -i 3 enable"]),
     ("fav disable", &["izone fav -i 3 disable"]),
-    ("fav delete", &["izone fav -i 6 delete      # asks to confirm; disables and clears times + days", "izone fav -i 6 clear -y    # same, no confirmation"]),
+    ("fav delete", &["izone fav -i 6 delete      # asks to confirm; disables, clears name, times + days", "izone fav 6 delete         # index can also go after fav or after delete", "izone fav -i 6 clear -y    # same, no confirmation"]),
     ("fav set-zones", &["izone fav -i 3 set-zones master:3:2350 kitchen:2:2300", "izone fav -i 3 set-zones 3:3:2350 0:2:2300   # zones by controller index", "   # <zone>:<mode>:<setpoint x100>, mode 1=open 2=close 3=auto 4=override 5=constant"]),
     // config
     ("config set-setpoint", &["izone config set-setpoint 23.5   # 15.0-30.0, 0.5 steps"]),

@@ -474,6 +474,10 @@ pub fn disable_schedule(client: &Client, schedule_index: u8) {
         eprintln!("{}Schedule index {} is out of valid range (0-{}).", "Error: ".red(), schedule_index, MAX_SCHEDULES - 1);
         crate::helpers::exit_with_usage();
     }
+    if !fetch_schedule(client, schedule_index).active {
+        println!("Schedule {} is already disabled.", schedule_index.to_string().green());
+        return;
+    }
     let command_data = json!({"SchedEnable": {"Index": schedule_index, "Enabled": 0}});
     make_command_request(client, command_data)
         .expect(&format!("Failed to disable schedule {}", schedule_index));
@@ -556,9 +560,9 @@ pub fn set_schedule_zones(client: &Client, schedule_index: u8, zone_settings: Ve
     println!("Schedule {} zone settings updated.", schedule_index.to_string().green());
 }
 
-/// Clear a schedule ("delete"): disable it and remove its start/stop times and days.
-/// The iZone API has no delete; all 9 slots always exist. Name, AC mode/fan and zone
-/// settings are left as-is (they have no effect while disabled with no days).
+/// Clear a schedule ("delete"): disable it and remove its name, start/stop times and days.
+/// The iZone API has no delete; all 9 slots always exist. AC mode/fan and zone settings
+/// are left as-is (they have no effect while disabled with no days).
 pub fn clear_schedule(client: &Client, schedule_index: u8, assume_yes: bool) {
     use std::io::{BufRead, IsTerminal, Write};
 
@@ -583,6 +587,16 @@ pub fn clear_schedule(client: &Client, schedule_index: u8, assume_yes: bool) {
         if days.is_empty() { "none".to_string() } else { days.join(" ") },
     );
 
+    let times_unset = format_sched_time(current.start_h, current.start_m) == "N/A"
+        && format_sched_time(current.stop_h, current.stop_m) == "N/A";
+    let need_disable = current.active;
+    let need_settings = !times_unset || !days.is_empty();
+    let need_name = !current.name.is_empty();
+    if !need_disable && !need_settings && !need_name {
+        println!("{} - already clear, nothing to do.", summary);
+        return;
+    }
+
     if !assume_yes {
         if !std::io::stdin().is_terminal() {
             eprintln!("{}", "Error: refusing to clear a schedule without confirmation. Re-run in a terminal, or add -y.".red());
@@ -590,7 +604,7 @@ pub fn clear_schedule(client: &Client, schedule_index: u8, assume_yes: bool) {
         }
         // Prompt on stderr so it's visible even when stdout is piped/redirected.
         eprintln!("{}", summary);
-        eprint!("Clear this schedule (disable it and remove its times and days)? [y/N] ");
+        eprint!("Clear this schedule (disable it and remove its name, times and days)? [y/N] ");
         let _ = std::io::stderr().flush();
         let mut answer = String::new();
         let _ = std::io::stdin().lock().read_line(&mut answer);
@@ -600,22 +614,31 @@ pub fn clear_schedule(client: &Client, schedule_index: u8, assume_yes: bool) {
         }
     }
 
+    // Only send what's needed, and report each step so a rejection part-way is clear.
     // Disable first, so a failure part-way leaves the schedule off rather than active.
-    make_command_request(client, json!({"SchedEnable": {"Index": schedule_index, "Enabled": 0}}))
-        .expect("Failed to disable schedule");
-    let command_data = json!({
-        "SchedSettings": {
-            "Index": schedule_index,
-            "StartH": 31, "StartM": 63, "StopH": 31, "StopM": 63, // 31/63 = not set
-            "DaysEnabled": { "M": 0, "Tu": 0, "W": 0, "Th": 0, "F": 0, "Sa": 0, "Su": 0 }
-        }
-    });
-    make_command_request(client, command_data)
-        .expect("Failed to clear schedule times and days");
+    // (The controller rejects SchedEnable for a schedule that isn't set up, so skip it if already off.)
+    if need_disable {
+        make_command_request(client, json!({"SchedEnable": {"Index": schedule_index, "Enabled": 0}}))
+            .expect("Failed to disable schedule");
+        println!("Schedule {}: disabled.", schedule_index);
+    }
+    if need_settings {
+        let command_data = json!({
+            "SchedSettings": {
+                "Index": schedule_index,
+                "StartH": 31, "StartM": 63, "StopH": 31, "StopM": 63, // 31/63 = not set
+                "DaysEnabled": { "M": 0, "Tu": 0, "W": 0, "Th": 0, "F": 0, "Sa": 0, "Su": 0 }
+            }
+        });
+        make_command_request(client, command_data)
+            .expect("Failed to clear schedule times and days");
+        println!("Schedule {}: times and days cleared.", schedule_index);
+    }
+    if need_name {
+        make_command_request(client, json!({"SchedName": {"Index": schedule_index, "Name": ""}}))
+            .expect("Failed to clear schedule name");
+        println!("Schedule {}: name cleared (was '{}').", schedule_index, current.name);
+    }
 
-    println!(
-        "Schedule {} '{}' cleared (disabled, no times, no days).",
-        schedule_index.to_string().green(),
-        current.name
-    );
+    println!("Schedule {} cleared.", schedule_index.to_string().green());
 }
