@@ -5,6 +5,15 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.0.3] - 2026-11-03
+
+### Added
+- Read-only default actions when no action is given:
+  - `izone zone` → zone summary; `izone zone <name>` → that zone's status
+  - `izone fav` → all schedules; `izone fav -i <n>` → that schedule's status
+  - `izone mode` → current mode; `izone fan` → current fan speed
+- Help is still available via `-h` / `--help` / `izone help <command>`
+
 ## [1.0.2] - 2026-11-03
 
 ### Fixed

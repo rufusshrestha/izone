@@ -71,8 +71,9 @@ struct ZoneArgs {
     #[arg(help = "The name of the zone (e.g., \"kitchen\", \"work\"). Leave empty for summary of all zones.")]
     name: Option<String>,
 
+    /// Defaults to `summary` with no zone name, or `status` with a zone name.
     #[command(subcommand)]
-    action: ZoneAction,
+    action: Option<ZoneAction>,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -162,8 +163,9 @@ enum ZoneAction {
 
 #[derive(Args, Debug)]
 struct ModeActionWrapper {
+    /// Defaults to showing the current mode.
     #[command(subcommand)]
-    action: ModeArgs,
+    action: Option<ModeArgs>,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -188,8 +190,9 @@ enum ModeArgs {
 // Updated: FanActionWrapper for the 'fan' command
 #[derive(Args, Debug)]
 struct FanActionWrapper {
+    /// Defaults to showing the current fan speed.
     #[command(subcommand)]
-    action: FanArgs,
+    action: Option<FanArgs>,
 }
 
 // Updated: FanArgs enum for fan subcommands with aliases
@@ -219,8 +222,9 @@ struct ScheduleArgs {
     #[arg(short = 'i', long = "index", global = true, help = "The index of the schedule (0-8). May be given before or after the action.")]
     index: Option<u8>,
 
+    /// Defaults to `status`.
     #[command(subcommand)]
-    action: ScheduleAction,
+    action: Option<ScheduleAction>,
 }
 
 // New: ScheduleAction enum for schedule subcommands
@@ -638,7 +642,11 @@ fn main() {
             system::get_system_temperature(&client);
         }
         Commands::Mode(mode_wrapper) => {
-            let mode_string = match mode_wrapper.action {
+            let Some(mode_action) = mode_wrapper.action else {
+                system::show_system_mode_fan(&client, true);
+                return;
+            };
+            let mode_string = match mode_action {
                 ModeArgs::Auto => "auto",
                 ModeArgs::Cool => "cool",
                 ModeArgs::Heat => "heat",
@@ -648,7 +656,11 @@ fn main() {
             system::set_system_mode(&client, mode_string);
         }
         Commands::Fan(fan_wrapper) => { // New: Handle fan command
-            let fan_speed_string = match fan_wrapper.action {
+            let Some(fan_action) = fan_wrapper.action else {
+                system::show_system_mode_fan(&client, false);
+                return;
+            };
+            let fan_speed_string = match fan_action {
                 FanArgs::Auto => "auto",
                 FanArgs::Low => "low",
                 FanArgs::Medium => "medium",
@@ -658,7 +670,9 @@ fn main() {
             system::set_system_fan(&client, fan_speed_string);
         }
         Commands::Zone(args) => {
-            match args.action {
+            // No action: summary of all zones, or status of the named zone.
+            let action = args.action.unwrap_or(if args.name.is_some() { ZoneAction::Status } else { ZoneAction::Summary });
+            match action {
                 ZoneAction::Status => {
                     if let Some(zone_name) = args.name {
                         zones::control_zone(&client, &zone_name.to_lowercase(), "status", None);
@@ -819,7 +833,7 @@ fn main() {
         }
         // New: Handle schedule commands
         Commands::Schedule(args) => {
-            match args.action {
+            match args.action.unwrap_or(ScheduleAction::Status) {
                 ScheduleAction::Status => {
                     if let Some(index) = args.index {
                         schedules::get_schedule_status(&client, index);

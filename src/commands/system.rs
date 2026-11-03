@@ -100,6 +100,34 @@ pub fn get_system_status(client: &Client) {
     }
 }
 
+/// Show the current system mode (`izone mode`) or fan speed (`izone fan`).
+pub fn show_system_mode_fan(client: &Client, mode: bool) {
+    const BOX_WIDTH: usize = 45;
+    const PADDING_WIDTH: usize = BOX_WIDTH - 2;
+    let query_data = json!({ "iZoneV2Request": { "Type": 1, "No": 0, "No1": 0 } });
+    let response_value = make_query_request(client, query_data).unwrap_or_else(|e| {
+        eprintln!("{}", e.red());
+        crate::helpers::exit_with_usage();
+    });
+    let sys_v2 = match serde_json::from_value::<SystemV2Response>(response_value) {
+        Ok(r) => r.system_v2,
+        Err(e) => {
+            eprintln!("{}", format!("Failed to parse system status response - {}", e).red());
+            crate::helpers::exit_with_usage();
+        }
+    };
+    let line = if mode {
+        format!("{:<24} {}", "Mode:", get_colored_system_mode(sys_v2.sys_mode))
+    } else {
+        format!("{:<24} {}", "Fan Speed:", get_fan_speed_text(sys_v2.sys_fan).cyan())
+    };
+    println!("╔{}╗", "═".repeat(BOX_WIDTH));
+    println!("║ {:^padding_width$} ║", "AIRCON STATUS", padding_width = PADDING_WIDTH);
+    println!("╠{}╣", "═".repeat(BOX_WIDTH));
+    println!("║ {:<pw$} ║", line, pw = PADDING_WIDTH + line.chars().count() - get_visible_length(&line));
+    println!("╚{}╝", "═".repeat(BOX_WIDTH));
+}
+
 pub fn get_system_temperature(client: &Client) {
     const BOX_WIDTH: usize = 45;
     const PADDING_WIDTH: usize = BOX_WIDTH - 2;
