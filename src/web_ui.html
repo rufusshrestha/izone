@@ -60,7 +60,8 @@ svg { width: 18px; height: 18px; flex: none; }
   border-bottom: 1px solid var(--border);
 }
 .topbar-inner { max-width: 1180px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 20px; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.01em; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.01em; border: 0; background: none; padding: 4px; margin: -4px; border-radius: 12px; cursor: pointer; }
+.brand:hover .brand-mark { filter: brightness(1.08); }
 .brand-mark { width: 32px; height: 32px; border-radius: 10px; background: linear-gradient(135deg, #3b82f6, #6d5cf6); display: grid; place-items: center; color: #fff; box-shadow: 0 4px 12px rgba(59,130,246,.35); }
 .brand-mark svg { width: 18px; height: 18px; }
 .tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 12px; margin-left: 12px; }
@@ -291,7 +292,7 @@ body.signed-out .tabs, body.signed-out .account, body.signed-out #refresh { disp
 <div class="progress" id="progress"></div>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand"><div class="brand-mark" data-icon="snow"></div>iZone</div>
+    <button class="brand" id="home" type="button" aria-label="iZone home" title="Home"><div class="brand-mark" data-icon="snow"></div>iZone</button>
     <nav class="tabs" role="tablist">
       <button class="tab" role="tab" data-tab="climate" aria-selected="true"><i data-icon="home"></i>Climate</button>
       <button class="tab" role="tab" data-tab="schedules" aria-selected="false"><i data-icon="calendar"></i>Schedules</button>
@@ -977,6 +978,7 @@ function showTab(tab) {
 }
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
 document.getElementById("refresh").addEventListener("click", () => refresh());
+document.getElementById("home").addEventListener("click", () => { if (state.authed) { closeModal(); showTab("climate"); window.scrollTo({ top: 0 }); } });
 
 /* Theme button: System -> Light -> Dark (saved in this browser) */
 const THEMES = { system: ["monitor", "System"], light: ["sun", "Light"], dark: ["moon", "Dark"] };
@@ -1042,7 +1044,7 @@ function showAuth(mode, notice = "") {
       btn.disabled = true; err.textContent = "";
       try {
         const r = await api("POST", "auth/login", { password: pw.value });
-        if (r.must_change) showAuth("change"); else showTab(requestedTab());
+        if (r.must_change) showAuth("change"); else showTab("climate"); // always start at home after signing in
       } catch (ex) {
         err.innerHTML = icon("alert") + `<span>${esc(ex.message)}</span>`;
         pw.value = ""; pw.focus();
@@ -1064,7 +1066,7 @@ function showAuth(mode, notice = "") {
       e.preventDefault();
       if (await submitPasswordChange(form, form.querySelector("#change-err"), form.querySelector("#change-btn"))) {
         toast("Password changed");
-        showTab(requestedTab());
+        showTab("climate");
       }
     });
   }

@@ -5,6 +5,12 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.1.3] - 2026-11-04
+
+### Changed
+- Web UI: signing in (and the forced password change) always opens the Climate home page.
+- Web UI: clicking the iZone logo goes to the Climate home page.
+
 ## [1.1.2] - 2026-11-04
 
 ### Changed
