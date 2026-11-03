@@ -70,3 +70,6 @@ ehthumbs.db
 # Docker: local settings and any bind-mounted data (encrypted web password + its key)
 .env
 data/
+
+# Claude Code local settings (per-user)
+.claude/settings.local.json
