@@ -88,7 +88,7 @@ impl WarningSamples {
 const MAX_FAILURES: u32 = 5; // per client address
 const GLOBAL_MAX_FAILURES: usize = 20; // across all addresses, within LOCKOUT
 const LOCKOUT: Duration = Duration::from_secs(15 * 60);
-const SESSION_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
+const SESSION_TTL: Duration = Duration::from_secs(365 * 24 * 3600); // 1 year (browsers allow up to 400 days)
 const MAX_SESSIONS: usize = 100;
 const COOKIE: &str = "izone_session";
 

@@ -580,7 +580,8 @@ izone web --port 9000
   before anything else works.
 - 5 wrong passwords from one address lock that address out for 15 minutes; 20 failures across
   all addresses within 15 minutes lock sign-in for everyone. Lockouts reset when the server restarts.
-- Sessions use a random token in an `HttpOnly`, `SameSite=Strict` cookie and last 7 days.
+- Sessions use a random token in an `HttpOnly`, `SameSite=Strict` cookie and last 1 year
+  (they end sooner if the server restarts, the password changes, or you sign out).
   Changing the password signs out every other device.
 
 The changed password is stored as an Argon2id hash, encrypted with AES-256-GCM:

@@ -5,6 +5,12 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.1.4] - 2026-11-04
+
+### Changed
+- Web UI sign-in sessions last 1 year (was 7 days). They still end when the server restarts,
+  the password changes or is reset, or you sign out.
+
 ## [1.1.3] - 2026-11-04
 
 ### Changed
