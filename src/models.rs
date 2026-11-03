@@ -272,6 +272,8 @@ pub struct SystemV2Response {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ZonesV2 {
+    #[serde(default)]
+    pub index: u8,
     pub name: String,
     pub mode: u8,
     pub setpoint: u32,

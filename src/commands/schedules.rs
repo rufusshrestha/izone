@@ -494,9 +494,7 @@ pub fn set_schedule_zones(client: &Client, schedule_index: u8, zone_settings: Ve
         let zone_index = match crate::constants::ZONES.get(zone_name.as_str()) {
             Some(&index) => index,
             None => {
-                let mut known: Vec<&str> = crate::constants::ZONES.keys().copied().collect();
-                known.sort();
-                errors.push(format!("Unknown zone '{}'. Known zones: {}", zone_name, known.join(", ")));
+                errors.push(format!("Unknown zone '{}'. Available zones (index=name): {}", zone_name, crate::helpers::available_zones()));
                 continue;
             }
         };
@@ -556,4 +554,68 @@ pub fn set_schedule_zones(client: &Client, schedule_index: u8, zone_settings: Ve
         .expect(&format!("Failed to set zone settings for schedule {}", schedule_index));
 
     println!("Schedule {} zone settings updated.", schedule_index.to_string().green());
+}
+
+/// Clear a schedule ("delete"): disable it and remove its start/stop times and days.
+/// The iZone API has no delete; all 9 slots always exist. Name, AC mode/fan and zone
+/// settings are left as-is (they have no effect while disabled with no days).
+pub fn clear_schedule(client: &Client, schedule_index: u8, assume_yes: bool) {
+    use std::io::{BufRead, IsTerminal, Write};
+
+    if schedule_index >= MAX_SCHEDULES {
+        eprintln!("{}", format!("Error: Schedule index {} is out of valid range (0-{}).", schedule_index, MAX_SCHEDULES - 1).red());
+        crate::helpers::exit_with_usage();
+    }
+
+    let current = fetch_schedule(client, schedule_index);
+    let d = &current.days_enabled;
+    let days: Vec<&str> = [
+        (d.monday, "Mon"), (d.tuesday, "Tue"), (d.wednesday, "Wed"), (d.thursday, "Thu"),
+        (d.friday, "Fri"), (d.saturday, "Sat"), (d.sunday, "Sun"),
+    ].iter().filter(|(on, _)| *on).map(|(_, n)| *n).collect();
+    let summary = format!(
+        "Schedule {} '{}': {}, start {}, stop {}, days {}",
+        schedule_index,
+        current.name,
+        if current.active { "enabled" } else { "disabled" },
+        format_sched_time(current.start_h, current.start_m),
+        format_sched_time(current.stop_h, current.stop_m),
+        if days.is_empty() { "none".to_string() } else { days.join(" ") },
+    );
+
+    if !assume_yes {
+        if !std::io::stdin().is_terminal() {
+            eprintln!("{}", "Error: refusing to clear a schedule without confirmation. Re-run in a terminal, or add -y.".red());
+            crate::helpers::exit_with_usage();
+        }
+        // Prompt on stderr so it's visible even when stdout is piped/redirected.
+        eprintln!("{}", summary);
+        eprint!("Clear this schedule (disable it and remove its times and days)? [y/N] ");
+        let _ = std::io::stderr().flush();
+        let mut answer = String::new();
+        let _ = std::io::stdin().lock().read_line(&mut answer);
+        if !matches!(answer.trim().to_lowercase().as_str(), "y" | "yes") {
+            eprintln!("Cancelled. No changes were made.");
+            return;
+        }
+    }
+
+    // Disable first, so a failure part-way leaves the schedule off rather than active.
+    make_command_request(client, json!({"SchedEnable": {"Index": schedule_index, "Enabled": 0}}))
+        .expect("Failed to disable schedule");
+    let command_data = json!({
+        "SchedSettings": {
+            "Index": schedule_index,
+            "StartH": 31, "StartM": 63, "StopH": 31, "StopM": 63, // 31/63 = not set
+            "DaysEnabled": { "M": 0, "Tu": 0, "W": 0, "Th": 0, "F": 0, "Sa": 0, "Su": 0 }
+        }
+    });
+    make_command_request(client, command_data)
+        .expect("Failed to clear schedule times and days");
+
+    println!(
+        "Schedule {} '{}' cleared (disabled, no times, no days).",
+        schedule_index.to_string().green(),
+        current.name
+    );
 }

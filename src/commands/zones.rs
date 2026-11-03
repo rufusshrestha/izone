@@ -29,16 +29,8 @@ pub fn control_zone(client: &Client, zone_name: &str, action: &str, value: Optio
         Some(&index) => index,
         None => {
             eprintln!(
-                "{}{}{}{}",
-                "Error: Unknown zone '".red(),
-                zone_name.red(),
-                "'.\nAvailable zones: ".red(),
-                ZONES
-                    .keys()
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                    .red()
+                "{}",
+                format!("Error: Unknown zone '{}'.\nAvailable zones (index=name): {}", zone_name, crate::helpers::available_zones()).red()
             );
             crate::helpers::exit_with_usage();
         }
@@ -202,16 +194,8 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
         Some(&index) => index,
         None => {
             eprintln!(
-                "{}{}{}{}",
-                "Error: Unknown zone '".red(),
-                zone_name.red(),
-                "'.\nAvailable zones: ".red(),
-                constants::ZONES
-                    .keys()
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                    .red()
+                "{}",
+                format!("Error: Unknown zone '{}'.\nAvailable zones (index=name): {}", zone_name, crate::helpers::available_zones()).red()
             );
             crate::helpers::exit_with_usage();
         }
@@ -268,6 +252,7 @@ pub fn get_zone_status(client: &Client, zone_name: &str) {
 
 
     print_line("Name:", zone.name.normal().to_string());
+    print_line("Index:", zone.index.to_string().normal().to_string());
     print_line("Mode:", mode_text);
     print_line("Current Temperature:", format!("{}°C", temp_text).cyan().to_string());
     print_line("Setpoint:", format!("{}°C", setpoint_text).normal().to_string());
@@ -306,16 +291,8 @@ pub fn get_zone_temperature(client: &Client, zone_name: &str) {
         Some(&index) => index,
         None => {
             eprintln!(
-                "{}{}{}{}",
-                "Error: Unknown zone '".red(),
-                zone_name.red(),
-                "'.\nAvailable zones: ".red(),
-                constants::ZONES
-                    .keys()
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-                    .red()
+                "{}",
+                format!("Error: Unknown zone '{}'.\nAvailable zones (index=name): {}", zone_name, crate::helpers::available_zones()).red()
             );
             crate::helpers::exit_with_usage();
         }
@@ -384,7 +361,8 @@ pub fn set_zone_balance_max(client: &Client, zone_name: &str, max: u8) {
     let zone_index = match ZONES.get(zone_name) {
         Some(&index) => index,
         None => {
-            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            eprintln!("{}", format!("Error: Unknown zone '{}'.
+Available zones (index=name): {}", zone_name, crate::helpers::available_zones()).red());
             crate::helpers::exit_with_usage();
         }
     };
@@ -420,7 +398,8 @@ pub fn set_zone_balance_min(client: &Client, zone_name: &str, min: u8) {
     let zone_index = match ZONES.get(zone_name) {
         Some(&index) => index,
         None => {
-            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            eprintln!("{}", format!("Error: Unknown zone '{}'.
+Available zones (index=name): {}", zone_name, crate::helpers::available_zones()).red());
             crate::helpers::exit_with_usage();
         }
     };
@@ -456,7 +435,8 @@ pub fn set_zone_damper_skip(client: &Client, zone_name: &str, skip: bool) {
     let zone_index = match ZONES.get(zone_name) {
         Some(&index) => index,
         None => {
-            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            eprintln!("{}", format!("Error: Unknown zone '{}'.
+Available zones (index=name): {}", zone_name, crate::helpers::available_zones()).red());
             crate::helpers::exit_with_usage();
         }
     };
@@ -484,7 +464,8 @@ pub fn set_zone_sensor_calibration(client: &Client, zone_name: &str, calibrate: 
     let zone_index = match ZONES.get(zone_name) {
         Some(&index) => index,
         None => {
-            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            eprintln!("{}", format!("Error: Unknown zone '{}'.
+Available zones (index=name): {}", zone_name, crate::helpers::available_zones()).red());
             crate::helpers::exit_with_usage();
         }
     };
@@ -516,7 +497,8 @@ pub fn set_zone_bypass(client: &Client, zone_name: &str, bypass: bool) {
     let zone_index = match ZONES.get(zone_name) {
         Some(&index) => index,
         None => {
-            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            eprintln!("{}", format!("Error: Unknown zone '{}'.
+Available zones (index=name): {}", zone_name, crate::helpers::available_zones()).red());
             crate::helpers::exit_with_usage();
         }
     };
@@ -544,7 +526,8 @@ pub fn set_zone_area(client: &Client, zone_name: &str, area: u8) {
     let zone_index = match ZONES.get(zone_name) {
         Some(&index) => index,
         None => {
-            eprintln!("{}", format!("Error: Unknown zone '{}'", zone_name).red());
+            eprintln!("{}", format!("Error: Unknown zone '{}'.
+Available zones (index=name): {}", zone_name, crate::helpers::available_zones()).red());
             crate::helpers::exit_with_usage();
         }
     };
@@ -577,6 +560,7 @@ pub fn get_all_zones_summary(client: &Client) {
     // Column widths for the summary table (visible characters)
 
 
+    const IDX_COL_WIDTH: usize = 4;
     const NAME_COL_WIDTH: usize = 15;
 
 
@@ -595,7 +579,7 @@ pub fn get_all_zones_summary(client: &Client) {
     const MAX_AIR_COL_WIDTH: usize = 10;
 
 
-    const STATUS_COL_WIDTH: usize = 25;
+    const STATUS_COL_WIDTH: usize = 20; // reduced to make room for the Idx column
 
 
 
@@ -607,10 +591,10 @@ pub fn get_all_zones_summary(client: &Client) {
     let header = format!(
 
 
-        "{:<NAME_COL_WIDTH$} {:<MODE_COL_WIDTH$} {:<TEMP_COL_WIDTH$} {:<SETPOINT_COL_WIDTH$} {:<MIN_AIR_COL_WIDTH$} {:<MAX_AIR_COL_WIDTH$} {:<STATUS_COL_WIDTH$}",
+        "{:<IDX_COL_WIDTH$} {:<NAME_COL_WIDTH$} {:<MODE_COL_WIDTH$} {:<TEMP_COL_WIDTH$} {:<SETPOINT_COL_WIDTH$} {:<MIN_AIR_COL_WIDTH$} {:<MAX_AIR_COL_WIDTH$} {:<STATUS_COL_WIDTH$}",
 
 
-        "ZONE", "MODE", "TEMP", "SETPOINT", "MIN AIR", "MAX AIR", "STATUS"
+        "IDX", "ZONE", "MODE", "TEMP", "SETPOINT", "MIN AIR", "MAX AIR", "STATUS"
 
 
     );
@@ -619,7 +603,7 @@ pub fn get_all_zones_summary(client: &Client) {
 
 
 
-    let total_width = NAME_COL_WIDTH + 1 + MODE_COL_WIDTH + 1 + TEMP_COL_WIDTH + 1 + SETPOINT_COL_WIDTH + 1 + MIN_AIR_COL_WIDTH + 1 + MAX_AIR_COL_WIDTH + 1 + STATUS_COL_WIDTH;
+    let total_width = IDX_COL_WIDTH + 1 + NAME_COL_WIDTH + 1 + MODE_COL_WIDTH + 1 + TEMP_COL_WIDTH + 1 + SETPOINT_COL_WIDTH + 1 + MIN_AIR_COL_WIDTH + 1 + MAX_AIR_COL_WIDTH + 1 + STATUS_COL_WIDTH;
 
 
 
@@ -818,7 +802,10 @@ pub fn get_all_zones_summary(client: &Client) {
         let line = format!(
 
 
-            "{:<name_col_width$} {:<mode_col_width$} {:<temp_col_width$} {:<setpoint_col_width$} {:<min_air_col_width$} {:<max_air_col_width$} {:<status_col_width$}",
+            "{:<idx_col_width$} {:<name_col_width$} {:<mode_col_width$} {:<temp_col_width$} {:<setpoint_col_width$} {:<min_air_col_width$} {:<max_air_col_width$} {:<status_col_width$}",
+
+
+            zone.index,
 
 
             zone_name_display,
@@ -840,6 +827,9 @@ pub fn get_all_zones_summary(client: &Client) {
 
 
             status_text,
+
+
+            idx_col_width = IDX_COL_WIDTH,
 
 
             name_col_width = NAME_COL_WIDTH,

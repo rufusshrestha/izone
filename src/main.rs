@@ -23,7 +23,7 @@ use crate::commands::schedules; // New: Import schedules module
 #[command(name = "izone", author = "Rufus P. Shrestha", version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "Airstream iZone Controller", long_about = None)]
 struct Cli {
-    #[arg(short = 'v', long = "verbose", help = "Show full JSON output for status queries and API responses.")]
+    #[arg(short = 'v', long = "verbose", global = true, help = "Show full JSON output for status queries and API responses.")]
     verbose: bool,
 
     #[command(subcommand)]
@@ -68,7 +68,7 @@ enum Commands {
 #[derive(Args, Debug)]
 struct ZoneArgs {
     /// The name of the zone (e.g., "kitchen", "work"). Leave empty for summary of all zones.
-    #[arg(help = "The name of the zone (e.g., \"kitchen\", \"work\"). Leave empty for summary of all zones.")]
+    #[arg(help = "Zone name (e.g., \"kitchen\") or controller index (e.g., 0; see Idx in `izone zone`). Leave empty for summary of all zones.")]
     name: Option<String>,
 
     /// Defaults to `summary` with no zone name, or `status` with a zone name.
@@ -265,6 +265,12 @@ enum ScheduleAction {
     Enable,
     /// Disable a schedule. E.g, izone fav -i 0 disable
     Disable,
+    /// Clear a schedule: disable it and remove its start/stop times and days (asks for confirmation). (delete|clear)
+    #[clap(name = "delete", aliases = &["clear"])]
+    Delete {
+        #[arg(short = 'y', long = "yes", help = "Don't ask for confirmation")]
+        yes: bool,
+    },
     /// Set specific zone modes and setpoints within a schedule.
     #[clap(name = "set-zones")]
     SetZones {
@@ -669,7 +675,9 @@ fn main() {
             };
             system::set_system_fan(&client, fan_speed_string);
         }
-        Commands::Zone(args) => {
+        Commands::Zone(mut args) => {
+            // Accept a zone name or its controller index (e.g. `izone zone 1 off`).
+            args.name = args.name.map(|n| helpers::resolve_zone(&n));
             // No action: summary of all zones, or status of the named zone.
             let action = args.action.unwrap_or(if args.name.is_some() { ZoneAction::Status } else { ZoneAction::Summary });
             match action {
@@ -927,13 +935,21 @@ fn main() {
                         helpers::exit_with_usage();
                     }
                 }
+                ScheduleAction::Delete { yes } => {
+                    if let Some(index) = args.index {
+                        schedules::clear_schedule(&client, index, yes);
+                    } else {
+                        eprintln!("{}", "Error: 'izone fav delete' requires a schedule index (-i <0-8>).".red());
+                        helpers::exit_with_usage();
+                    }
+                }
                 ScheduleAction::SetZones { zone_settings } => {
                     if let Some(index) = args.index {
                         let mut parsed_zone_settings = Vec::new();
                         for setting_str in zone_settings {
                             let parts: Vec<&str> = setting_str.split(':').collect();
                             if parts.len() == 3 {
-                                let zone_name = parts[0].to_lowercase();
+                                let zone_name = helpers::resolve_zone(parts[0]);
                                 let mode_val = parts[1].parse::<u8>().unwrap_or_else(|_| {
                                     eprintln!("Error: Invalid mode value in '{}'. Must be an integer.", setting_str.red());
                                     helpers::exit_with_usage();

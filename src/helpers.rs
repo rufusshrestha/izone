@@ -152,10 +152,10 @@ pub const EXAMPLES: &[(&str, &[&str])] = &[
     ("fan auto", &["izone fan auto"]), ("fan low", &["izone fan low"]), ("fan medium", &["izone fan medium"]),
     ("fan high", &["izone fan high"]), ("fan top", &["izone fan top"]),
     // zone: name comes before the action
-    ("zone status", &["izone zone kitchen status", "izone zone kitchen            # same (status is the default)"]),
+    ("zone status", &["izone zone kitchen status", "izone zone 0 status       # by controller index (Idx in zone sum)", "izone zone kitchen            # same (status is the default)"]),
     ("zone temp", &["izone zone kitchen temp"]),
     ("zone on", &["izone zone kitchen on   # climate control (auto)"]),
-    ("zone off", &["izone zone kitchen off   # close"]),
+    ("zone off", &["izone zone kitchen off   # close", "izone zone 0 off         # same, by controller index (Idx in zone sum)"]),
     ("zone open", &["izone zone kitchen open"]),
     ("zone auto", &["izone zone kitchen auto"]),
     ("zone override", &["izone zone kitchen override"]),
@@ -179,7 +179,8 @@ pub const EXAMPLES: &[(&str, &[&str])] = &[
     ("fav set-ac", &["izone fav -i 3 set-ac --mode cool --fan auto", "izone fav -i 3 set-ac --mode heat"]),
     ("fav enable", &["izone fav -i 3 enable"]),
     ("fav disable", &["izone fav -i 3 disable"]),
-    ("fav set-zones", &["izone fav -i 3 set-zones master:3:2350 kitchen:2:2300", "   # <zone>:<mode>:<setpoint x100>, mode 1=open 2=close 3=auto 4=override 5=constant"]),
+    ("fav delete", &["izone fav -i 6 delete      # asks to confirm; disables and clears times + days", "izone fav -i 6 clear -y    # same, no confirmation"]),
+    ("fav set-zones", &["izone fav -i 3 set-zones master:3:2350 kitchen:2:2300", "izone fav -i 3 set-zones 3:3:2350 0:2:2300   # zones by controller index", "   # <zone>:<mode>:<setpoint x100>, mode 1=open 2=close 3=auto 4=override 5=constant"]),
     // config
     ("config set-setpoint", &["izone config set-setpoint 23.5   # 15.0-30.0, 0.5 steps"]),
     ("config set-sleep-timer", &["izone config set-sleep-timer 2h", "izone config set-sleep-timer 30m", "izone config set-sleep-timer 0   # off"]),
@@ -270,4 +271,28 @@ pub fn exit_with_usage() -> ! {
         }
     }
     std::process::exit(1)
+}
+
+/// Resolve a zone given by name (case-insensitive) or by controller index (e.g. "1")
+/// to its configured zone key. Returns the input lowercased if it can't be resolved,
+/// so the caller's "Unknown zone" error still reports what the user typed.
+pub fn resolve_zone(input: &str) -> String {
+    let lower = input.to_lowercase();
+    if crate::constants::ZONES.contains_key(lower.as_str()) {
+        return lower;
+    }
+    if !lower.is_empty() && lower.chars().all(|c| c.is_ascii_digit()) {
+        let index: u8 = match lower.parse() { Ok(i) => i, Err(_) => return lower };
+        if let Some((name, _)) = crate::constants::ZONES.iter().find(|(_, i)| **i == index) {
+            return name.to_string();
+        }
+    }
+    lower
+}
+
+/// "0=kitchen, 1=theatre, ..." in controller index order, for error messages.
+pub fn available_zones() -> String {
+    let mut zones: Vec<(&u8, &&str)> = crate::constants::ZONES.iter().map(|(n, i)| (i, n)).collect();
+    zones.sort();
+    zones.iter().map(|(i, n)| format!("{}={}", i, n)).collect::<Vec<_>>().join(", ")
 }

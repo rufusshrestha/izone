@@ -5,6 +5,19 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.0.5] - 2026-11-03
+
+### Added
+- Zones can be given by controller index as well as name: `izone zone 1 off`,
+  `izone fav -i 3 set-zones 1:3:2350 0:2:2300`
+- `zone sum` shows an IDX column; `izone zone <name>` shows the zone's index
+- `izone fav -i <n> delete` (alias `clear`): disables a schedule and removes its times and days,
+  after a `[y/N]` confirmation (`-y` to skip; refuses without a terminal unless `-y`)
+- `-v` can be given anywhere in the command
+
+### Changed
+- Unknown-zone errors list zones as `index=name`
+
 ## [1.0.4] - 2026-11-03
 
 ### Changed
