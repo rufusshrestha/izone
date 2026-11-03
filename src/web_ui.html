@@ -381,6 +381,9 @@ const ZONE_MODES = {
 const SLEEP = [[0, "Off"], [30, "30 min"], [60, "1 hour"], [120, "2 hours"], [240, "4 hours"], [360, "6 hours"], [480, "8 hours"], [720, "12 hours"]];
 const DAYS = [["M", "Mon", "M"], ["Tu", "Tue", "T"], ["W", "Wed", "W"], ["Th", "Thu", "T"], ["F", "Fri", "F"], ["Sa", "Sat", "S"], ["Su", "Sun", "S"]];
 const modeOf = v => SYS_MODES.find(m => m.v === v);
+/* Zones are shown alphabetically (case-insensitive, natural number order), left to right. */
+const byName = (a, b) => String(a.Name ?? a.name).localeCompare(String(b.Name ?? b.name), undefined, { sensitivity: "base", numeric: true });
+const sortedZones = list => [...(list || [])].sort(byName);
 /* "Top" (5) is only offered for 4-speed or variable-speed fans (FanAutoType 3 / 2), or when it's
    already selected. A 2- or 3-speed fan has no speed above High. */
 function fanChoices(current) {
@@ -566,7 +569,7 @@ function renderClimate() {
     </div>
   </div>
   <div class="section-head"><h2>Zones</h2><span class="sub">${state.zones.filter(z => z.Mode !== 2).length} of ${state.zones.length} open</span></div>
-  <div class="zones">${state.zones.map(zoneCard).join("")}</div>`;
+  <div class="zones">${sortedZones(state.zones).map(zoneCard).join("")}</div>`;
 }
 
 function zoneCard(z) {
@@ -747,7 +750,7 @@ function scheduleDialog(index) {
   const s = state.schedules.find(s => s.Index === index);
   if (!s) return;
   const { start, stop } = schedTimes(s);
-  const zones = (state.zones || []).map(z => ({ idx: z.Index, name: z.Name, cur: s.Zones?.[z.Index] }));
+  const zones = sortedZones(state.zones).map(z => ({ idx: z.Index, name: z.Name, cur: s.Zones?.[z.Index] }));
   const days = new Set(DAYS.filter(([k]) => s.DaysEnabled?.[k] === 1).map(([k]) => k));
   const zmOpts = v => [3, 1, 2, 4, 5].map(m => `<option value="${ZONE_MODES[m].id}" ${m === v ? "selected" : ""}>${ZONE_MODES[m].label}</option>`).join("");
   const m = openModal(`${modalHead(`Edit schedule <span class="idx">${s.Index}</span>`)}

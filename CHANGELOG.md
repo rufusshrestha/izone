@@ -5,6 +5,11 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.1.1] - 2026-11-04
+
+### Changed
+- Web UI: zones are listed alphabetically (left to right), including in the schedule editor.
+
 ## [1.1.0] - 2026-11-03
 
 ### Added
