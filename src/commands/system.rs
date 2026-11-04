@@ -81,25 +81,10 @@ pub fn get_system_status(client: &Client) {
     let sys_temp_line = format!("{:width$} {}°C", "Controller Temperature:", format_temp(sys_v2.temp).cyan(), width = LABEL_WIDTH);
     let sleep_timer_line = format!("{:width$} {}", "Sleep Timer:", sleep_timer_text, width = LABEL_WIDTH);
     let ac_error_line = format!("{:width$} {}", "System Check Status:", ac_error_text, width = LABEL_WIDTH - 1); // Adjusted width for System Check Status
-    // Some controllers flicker `Warnings` (e.g. "filter" <-> "none") while the wall shows nothing.
-    // If a warning is reported, re-check a few times and only call it a warning if it holds.
-    let first = sys_v2.warnings.trim().to_string();
-    let mut consistent = true;
-    if !first.is_empty() && first != "none" {
-        for _ in 0..3 {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-            let again = make_query_request(client, json!({ "iZoneV2Request": { "Type": 1, "No": 0, "No1": 0 } }))
-                .ok()
-                .and_then(|v| v.get("SystemV2")?.get("Warnings")?.as_str().map(|s| s.trim().to_string()));
-            if again.as_deref() != Some(first.as_str()) {
-                consistent = false;
-                break;
-            }
-        }
-    }
-    let warnings_text = match first.as_str() {
+    // Single reading. Note: some controllers briefly flicker "filter" here while the wall
+    // controller shows nothing; the web UI filters that out, the CLI shows the raw value.
+    let warnings_text = match sys_v2.warnings.trim() {
         "" | "none" => "None".green().to_string(),
-        _ if !consistent => "Intermittent".normal().to_string(),
         "filter" => "Clean filter".yellow().to_string(),
         other => other.yellow().to_string(),
     };

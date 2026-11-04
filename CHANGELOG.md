@@ -5,6 +5,12 @@ All notable changes to the iZone CLI project.
 **Author:** Rufus Shrestha
 **License:** MIT
 
+## [1.1.5] - 2026-11-05
+
+### Changed
+- `izone status` reads warnings with a single request again (no re-checks), so it returns
+  immediately. It shows the controller's current value; the web UI still ignores flickering warnings.
+
 ## [1.1.4] - 2026-11-04
 
 ### Changed
